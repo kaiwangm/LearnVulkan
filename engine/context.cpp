@@ -3,9 +3,9 @@
 namespace engine
 {
     std::unique_ptr<Context> Context::instance_ = nullptr;
-    void Context::Init()
+    void Context::Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface)
     {
-        instance_.reset(new Context());
+        instance_.reset(new Context(extensions, createSurface));
     }
 
     void Context::Quit()
@@ -18,10 +18,11 @@ namespace engine
         return *instance_;
     }
 
-    Context::Context()
+    Context::Context(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface)
     {
-        CreateInstance();
+        CreateInstance(extensions);
         pickupPhysicalDevice();
+        surface = createSurface(instance);
         queryQueueFamilyIndices();
         createLogicalDevice();
         getQueues();
@@ -33,7 +34,7 @@ namespace engine
         instance.destroy();
     }
 
-    void Context::CreateInstance()
+    void Context::CreateInstance(const std::vector<const char *> &extensions)
     {
         vk::InstanceCreateInfo createInfo;
         vk::ApplicationInfo appInfo;
@@ -45,7 +46,8 @@ namespace engine
             .setPApplicationName("LearnVulkan");
 
         createInfo.setPApplicationInfo(&appInfo)
-            .setPEnabledLayerNames(layers);
+            .setPEnabledLayerNames(layers)
+            .setPEnabledExtensionNames(extensions);
 
         instance = vk::createInstance(createInfo);
     }
@@ -75,13 +77,35 @@ namespace engine
 
     void Context::createLogicalDevice()
     {
+        std::array<const char *, 1> extensions = {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        };
         vk::DeviceCreateInfo createInfo;
-        vk::DeviceQueueCreateInfo queueCreateInfo;
+        std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
         float priorities = 1.0f;
-        queueCreateInfo.setQueueFamilyIndex(0)
-            .setQueueCount(1)
-            .setPQueuePriorities(&priorities);
-        createInfo.setQueueCreateInfos(queueCreateInfo);
+        if (queueFamilyIndices.presentQueue.value() == queueFamilyIndices.graphicsQueue.value())
+        {
+            vk::DeviceQueueCreateInfo queueCreateInfo;
+            queueCreateInfo.setQueueFamilyIndex(queueFamilyIndices.graphicsQueue.value())
+                .setQueueCount(1)
+                .setPQueuePriorities(&priorities);
+            queueCreateInfos.push_back(std::move(queueCreateInfo));
+        }
+        else
+        {
+            vk::DeviceQueueCreateInfo queueCreateInfo;
+            queueCreateInfo.setQueueFamilyIndex(queueFamilyIndices.graphicsQueue.value())
+                .setQueueCount(1)
+                .setPQueuePriorities(&priorities);
+            queueCreateInfos.push_back(queueCreateInfo);
+            queueCreateInfo.setQueueFamilyIndex(queueFamilyIndices.presentQueue.value())
+                .setQueueCount(1)
+                .setPQueuePriorities(&priorities);
+            queueCreateInfos.push_back(queueCreateInfo);
+        }
+
+        createInfo.setQueueCreateInfos(queueCreateInfos)
+            .setPEnabledExtensionNames(extensions);
 
         device = phyDevice.createDevice(createInfo);
     }
@@ -95,6 +119,14 @@ namespace engine
             if (queueFamily.queueFlags & vk::QueueFlagBits::eGraphics)
             {
                 queueFamilyIndices.graphicsQueue = i;
+            }
+            if(phyDevice.getSurfaceSupportKHR(i, surface))
+            {
+                queueFamilyIndices.presentQueue = i;
+            }
+
+            if (queueFamilyIndices)
+            {
                 break;
             }
         }
@@ -103,5 +135,6 @@ namespace engine
     void Context::getQueues()
     {
         graphicsQueue = device.getQueue(queueFamilyIndices.graphicsQueue.value(), 0);
+        presentQueue = device.getQueue(queueFamilyIndices.presentQueue.value(), 0);
     }
 }

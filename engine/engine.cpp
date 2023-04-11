@@ -2,9 +2,9 @@
 
 namespace engine
 {
-    void Init()
+    void Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface)
     {
-        Context::Init();
+        Context::Init(extensions, createSurface);
     }
 
     void Quit()

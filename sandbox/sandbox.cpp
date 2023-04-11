@@ -12,7 +12,7 @@ int main(int argc, char **argv)
     SDL_Window *window = SDL_CreateWindow(
         "LearnVulkan",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        800, 600, SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
+        1200, 800, SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
 
     if (window == nullptr)
     {
@@ -23,7 +23,21 @@ int main(int argc, char **argv)
     bool shouldClose = false;
     SDL_Event event;
 
-    engine::Init();
+    unsigned int extensionCount = 0;
+    SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, nullptr);
+    std::vector<const char *> extensions(extensionCount);
+    SDL_Vulkan_GetInstanceExtensions(window, &extensionCount, extensions.data());
+
+    engine::Init(extensions,
+                 [&](vk::Instance instance)
+                 {
+                     VkSurfaceKHR surface;
+                     if (!SDL_Vulkan_CreateSurface(window, instance, &surface))
+                     {
+                         throw std::runtime_error("Failed to create surface");
+                     }
+                     return surface;
+                 });
 
     while (!shouldClose)
     {
