@@ -33,7 +33,7 @@ namespace engine
         vk::PipelineRasterizationStateCreateInfo rasterizerInfo;
         rasterizerInfo.setRasterizerDiscardEnable(VK_FALSE)
             .setCullMode(vk::CullModeFlagBits::eBack)
-            .setFrontFace(vk::FrontFace::eCounterClockwise)
+            .setFrontFace(vk::FrontFace::eClockwise)
             .setPolygonMode(vk::PolygonMode::eFill)
             .setLineWidth(1.0f);
         pipelineInfo.setPRasterizationState(&rasterizerInfo);
@@ -50,10 +50,10 @@ namespace engine
         vk::PipelineColorBlendStateCreateInfo colorBlendingInfo;
         vk::PipelineColorBlendAttachmentState colorBlendAttachment;
         colorBlendAttachment.setBlendEnable(VK_FALSE)
-            .setColorWriteMask(vk::ColorComponentFlagBits::eR |
-                               vk::ColorComponentFlagBits::eG |
+            .setColorWriteMask(vk::ColorComponentFlagBits::eA |
                                vk::ColorComponentFlagBits::eB |
-                               vk::ColorComponentFlagBits::eA);
+                               vk::ColorComponentFlagBits::eG |
+                               vk::ColorComponentFlagBits::eR);
 
         colorBlendingInfo.setLogicOpEnable(VK_FALSE)
             .setAttachments(colorBlendAttachment);
@@ -72,14 +72,6 @@ namespace engine
         pipeline = result.value;
     }
 
-    RenderProcess::~RenderProcess()
-    {
-        auto& device = Context::GetInstance().device;
-        device.destroyRenderPass(renderPass);
-        device.destroyPipelineLayout(layout);
-        device.destroyPipeline(pipeline);
-    }
-
     void RenderProcess::InitLayout()
     {
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
@@ -92,7 +84,7 @@ namespace engine
         vk::AttachmentDescription attachDesc;
         attachDesc.setFormat(Context::GetInstance().swapchain->swapchainInfo.format.format)
             .setInitialLayout(vk::ImageLayout::eUndefined)
-            .setFinalLayout(vk::ImageLayout::eColorAttachmentOptimal)
+            .setFinalLayout(vk::ImageLayout::ePresentSrcKHR)
             .setLoadOp(vk::AttachmentLoadOp::eClear)
             .setStoreOp(vk::AttachmentStoreOp::eStore)
             .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
@@ -101,9 +93,8 @@ namespace engine
         renderPassInfo.setAttachments(attachDesc);
 
         vk::AttachmentReference attachRef;
-        attachRef.setAttachment(0)
-            .setLayout(vk::ImageLayout::eColorAttachmentOptimal);
-
+        attachRef.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
+            .setAttachment(0);
         vk::SubpassDescription subpass;
         subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
             .setColorAttachments(attachRef);
@@ -117,6 +108,14 @@ namespace engine
             .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
         renderPassInfo.setDependencies(dependency);
 
-        renderPass = Context::GetInstance().device.createRenderPass(renderPassInfo);  
+        renderPass = Context::GetInstance().device.createRenderPass(renderPassInfo);
+    }
+
+    RenderProcess::~RenderProcess()
+    {
+        auto &device = Context::GetInstance().device;
+        device.destroyRenderPass(renderPass);
+        device.destroyPipelineLayout(layout);
+        device.destroyPipeline(pipeline);
     }
 }

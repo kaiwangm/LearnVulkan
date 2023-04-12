@@ -9,7 +9,7 @@ namespace engine
     public:
         vk::SwapchainKHR swapchain;
 
-        Swapchain(int w, int h);
+        Swapchain(int width, int height);
         ~Swapchain();
 
         struct SwapchainInfo
@@ -17,7 +17,7 @@ namespace engine
             vk::Extent2D imageExtent;
             uint32_t imageCount;
             vk::SurfaceFormatKHR format;
-            vk::SurfaceTransformFlagsKHR transform;
+            vk::SurfaceTransformFlagBitsKHR transform;
             vk::PresentModeKHR present;
         };
 
@@ -26,9 +26,9 @@ namespace engine
         std::vector<vk::ImageView> imageViews;
         std::vector<vk::Framebuffer> framebuffers;
 
-        void querySwapchainInfo(int w, int h);
+        void querySwapchainInfo(int width, int height);
         void getImages();
         void createImageViews();
-        void createFramebuffers(int w, int h);
+        void createFramebuffers(int width, int height);
     };
 }

@@ -40,15 +40,14 @@ namespace engine
     {
         vk::InstanceCreateInfo createInfo;
         vk::ApplicationInfo appInfo;
-        std::vector<const char *> layers = {
-            "VK_LAYER_KHRONOS_validation",
-        };
+        appInfo.setApiVersion(VK_API_VERSION_1_3);
 
-        appInfo.setApiVersion(VK_API_VERSION_1_3)
-            .setPApplicationName("LearnVulkan");
+        createInfo.setPApplicationInfo(&appInfo);
+        instance = vk::createInstance(createInfo);
 
-        createInfo.setPApplicationInfo(&appInfo)
-            .setPEnabledLayerNames(layers)
+        std::vector<const char *> layers = {"VK_LAYER_KHRONOS_validation"};
+
+        createInfo.setPEnabledLayerNames(layers)
             .setPEnabledExtensionNames(extensions);
 
         instance = vk::createInstance(createInfo);
@@ -122,7 +121,7 @@ namespace engine
             {
                 queueFamilyIndices.graphicsQueue = i;
             }
-            if(phyDevice.getSurfaceSupportKHR(i, surface))
+            if (phyDevice.getSurfaceSupportKHR(i, surface))
             {
                 queueFamilyIndices.presentQueue = i;
             }

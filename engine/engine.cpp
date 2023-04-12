@@ -13,10 +13,13 @@ namespace engine
         Context::GetInstance().renderProcess->InitLayout();
         Context::GetInstance().swapchain->createFramebuffers(width, height);
         Context::GetInstance().renderProcess->InitPipeline(*shader, width, height);
+        Context::GetInstance().InitRenderer();
     }
 
     void Quit()
     {
+        Context::GetInstance().device.waitIdle();
+        Context::GetInstance().renderer.reset();
         Context::GetInstance().renderProcess.reset();
         delete shader;
         Context::GetInstance().DestroySwapchain();

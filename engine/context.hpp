@@ -4,8 +4,12 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include <memory>
+#include <cassert>
+#include <iostream>
 #include "swapchain.hpp"
 #include "render_process.hpp"
+#include "renderer.hpp"
 
 namespace engine
 {
@@ -39,14 +43,19 @@ namespace engine
         vk::SurfaceKHR surface;
         std::unique_ptr<Swapchain> swapchain;
         std::unique_ptr<RenderProcess> renderProcess;
+        std::unique_ptr<Renderer> renderer;
         QueueFamilyIndices queueFamilyIndices;
 
-        void InitSwapchain(int w, int h){
-            swapchain.reset(new Swapchain(w, h));
+        void InitSwapchain(int width, int height){
+            swapchain.reset(new Swapchain(width, height));
         }
 
         void DestroySwapchain(){
             swapchain.reset();
+        }
+
+        void InitRenderer(){
+            renderer.reset(new Renderer());
         }
 
     private:
