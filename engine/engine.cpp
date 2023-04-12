@@ -11,6 +11,7 @@ namespace engine
         shader = new Shader(std::string("shaders/shader.vert.spv"), std::string("shaders/shader.frag.spv"));
         Context::GetInstance().renderProcess->InitRenderPass();
         Context::GetInstance().renderProcess->InitLayout();
+        Context::GetInstance().swapchain->createFramebuffers(width, height);
         Context::GetInstance().renderProcess->InitPipeline(*shader, width, height);
     }
 

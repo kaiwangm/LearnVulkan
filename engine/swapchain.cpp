@@ -40,6 +40,10 @@ namespace engine
 
     Swapchain::~Swapchain()
     {
+        for (auto &framebuffer : framebuffers)
+        {
+            Context::GetInstance().device.destroyFramebuffer(framebuffer);
+        }
         for (auto &imageView : imageViews)
         {
             Context::GetInstance().device.destroyImageView(imageView);
@@ -101,6 +105,22 @@ namespace engine
                 .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 
             imageViews[i] = Context::GetInstance().device.createImageView(imageViewCreateInfo);
+        }
+    }
+
+    void Swapchain::createFramebuffers(int w, int h)
+    {
+        framebuffers.resize(imageViews.size());
+        for (size_t i = 0; i < imageViews.size(); i++)
+        {
+            vk::FramebufferCreateInfo framebufferCreateInfo;
+            framebufferCreateInfo.setAttachments(imageViews[i])
+                .setWidth(w)
+                .setHeight(h)
+                .setRenderPass(Context::GetInstance().renderProcess->renderPass)
+                .setLayers(1);
+
+            framebuffers[i] = Context::GetInstance().device.createFramebuffer(framebufferCreateInfo);
         }
     }
 }

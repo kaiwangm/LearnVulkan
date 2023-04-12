@@ -24,9 +24,11 @@ namespace engine
         SwapchainInfo swapchainInfo;
         std::vector<vk::Image> images;
         std::vector<vk::ImageView> imageViews;
+        std::vector<vk::Framebuffer> framebuffers;
 
         void querySwapchainInfo(int w, int h);
         void getImages();
         void createImageViews();
+        void createFramebuffers(int w, int h);
     };
 }
