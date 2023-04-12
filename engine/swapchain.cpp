@@ -19,23 +19,31 @@ namespace engine
             .setMinImageCount(swapchainInfo.imageCount)
             .setPresentMode(swapchainInfo.present);
 
-        auto& queueIndicecs = Context::GetInstance().queueFamilyIndices;
+        auto &queueIndicecs = Context::GetInstance().queueFamilyIndices;
         if (queueIndicecs.graphicsQueue.value() == queueIndicecs.presentQueue.value())
         {
             swapchainCreateInfo.setQueueFamilyIndices(queueIndicecs.graphicsQueue.value())
-                            .setImageSharingMode(vk::SharingMode::eExclusive);
+                .setImageSharingMode(vk::SharingMode::eExclusive);
         }
         else
         {
             std::array indices = {queueIndicecs.graphicsQueue.value(), queueIndicecs.presentQueue.value()};
             swapchainCreateInfo.setQueueFamilyIndices(indices)
-                            .setImageSharingMode(vk::SharingMode::eConcurrent);
+                .setImageSharingMode(vk::SharingMode::eConcurrent);
         }
 
+        swapchain = Context::GetInstance().device.createSwapchainKHR(swapchainCreateInfo);
+
+        getImages();
+        createImageViews();
     }
 
     Swapchain::~Swapchain()
     {
+        for (auto &imageView : imageViews)
+        {
+            Context::GetInstance().device.destroyImageView(imageView);
+        }
         Context::GetInstance().device.destroySwapchainKHR(swapchain);
     }
 
@@ -72,6 +80,27 @@ namespace engine
                 swapchainInfo.present = presentMode;
                 break;
             }
+        }
+    }
+
+    void Swapchain::getImages()
+    {
+        images = Context::GetInstance().device.getSwapchainImagesKHR(swapchain);
+    }
+
+    void Swapchain::createImageViews()
+    {
+        imageViews.resize(images.size());
+        for (size_t i = 0; i < images.size(); i++)
+        {
+            vk::ImageViewCreateInfo imageViewCreateInfo;
+            imageViewCreateInfo.setImage(images[i])
+                .setViewType(vk::ImageViewType::e2D)
+                .setComponents(vk::ComponentMapping())
+                .setFormat(swapchainInfo.format.format)
+                .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+
+            imageViews[i] = Context::GetInstance().device.createImageView(imageViewCreateInfo);
         }
     }
 }

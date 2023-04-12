@@ -12,7 +12,8 @@ namespace engine
         Swapchain(int w, int h);
         ~Swapchain();
 
-        struct SwapchainInfo{
+        struct SwapchainInfo
+        {
             vk::Extent2D imageExtent;
             uint32_t imageCount;
             vk::SurfaceFormatKHR format;
@@ -21,8 +22,11 @@ namespace engine
         };
 
         SwapchainInfo swapchainInfo;
+        std::vector<vk::Image> images;
+        std::vector<vk::ImageView> imageViews;
 
         void querySwapchainInfo(int w, int h);
-
+        void getImages();
+        void createImageViews();
     };
 }
