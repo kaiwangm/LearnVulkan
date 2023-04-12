@@ -7,6 +7,14 @@
 
 int main(int argc, char **argv)
 {
+    // show work dir
+    char *base_path = SDL_GetBasePath();
+    if (base_path)
+    {
+        std::cout << "Working directory: " << base_path << std::endl;
+        SDL_free(base_path);
+    }
+    
     SDL_Init(SDL_INIT_EVERYTHING);
 
     SDL_Window *window = SDL_CreateWindow(
