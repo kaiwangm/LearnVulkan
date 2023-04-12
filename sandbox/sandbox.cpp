@@ -37,7 +37,7 @@ int main(int argc, char **argv)
                          throw std::runtime_error("Failed to create surface");
                      }
                      return surface;
-                 });
+                 }, 1200, 800);
 
     while (!shouldClose)
     {

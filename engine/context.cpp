@@ -30,6 +30,7 @@ namespace engine
 
     Context::~Context()
     {
+        instance.destroySurfaceKHR(surface);
         device.destroy();
         instance.destroy();
     }

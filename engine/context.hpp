@@ -4,6 +4,7 @@
 #include <iostream>
 #include <memory>
 #include <optional>
+#include "swapchain.hpp"
 
 namespace engine
 {
@@ -35,7 +36,16 @@ namespace engine
         vk::Queue graphicsQueue;
         vk::Queue presentQueue;
         vk::SurfaceKHR surface;
+        std::unique_ptr<Swapchain> swapchain;
         QueueFamilyIndices queueFamilyIndices;
+
+        void InitSwapchain(int w, int h){
+            swapchain.reset(new Swapchain(w, h));
+        }
+
+        void DestroySwapchain(){
+            swapchain.reset();
+        }
 
     private:
         static std::unique_ptr<Context> instance_;
