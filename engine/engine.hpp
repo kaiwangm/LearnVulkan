@@ -6,6 +6,6 @@
 
 namespace engine
 {
-    void Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface, int w, int h);
+    void Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface, int width, int height);
     void Quit();
 }

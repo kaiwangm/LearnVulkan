@@ -15,7 +15,12 @@ int main(int argc, char **argv)
         SDL_free(base_path);
     }
     
-    SDL_Init(SDL_INIT_EVERYTHING);
+    if(SDL_Init(SDL_INIT_EVERYTHING) != 0)
+    {
+        SDL_Log("Unable to initialize SDL: %s", SDL_GetError());
+        throw std::runtime_error("Failed to initialize SDL");
+    }
+
 
     SDL_Window *window = SDL_CreateWindow(
         "LearnVulkan",

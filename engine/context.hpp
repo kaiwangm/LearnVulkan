@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include "swapchain.hpp"
+#include "render_process.hpp"
 
 namespace engine
 {
@@ -37,6 +38,7 @@ namespace engine
         vk::Queue presentQueue;
         vk::SurfaceKHR surface;
         std::unique_ptr<Swapchain> swapchain;
+        std::unique_ptr<RenderProcess> renderProcess;
         QueueFamilyIndices queueFamilyIndices;
 
         void InitSwapchain(int w, int h){

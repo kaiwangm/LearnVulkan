@@ -26,6 +26,7 @@ namespace engine
         queryQueueFamilyIndices();
         createLogicalDevice();
         getQueues();
+        renderProcess.reset(new RenderProcess());
     }
 
     Context::~Context()
