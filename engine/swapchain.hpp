@@ -1,6 +1,8 @@
 #pragma once
 
 #include "vulkan/vulkan.hpp"
+#include "context.hpp"
+#include "render_process.hpp"
 
 namespace engine
 {
@@ -9,11 +11,12 @@ namespace engine
     public:
         vk::SwapchainKHR swapchain;
 
-        Swapchain(int width, int height);
+        Swapchain(const engine::Context *context, int width, int height);
         ~Swapchain();
 
         struct SwapchainInfo
         {
+            vk::SurfaceCapabilitiesKHR capabilities;
             vk::Extent2D imageExtent;
             uint32_t imageCount;
             vk::SurfaceFormatKHR format;
@@ -29,6 +32,9 @@ namespace engine
         void querySwapchainInfo(int width, int height);
         void getImages();
         void createImageViews();
-        void createFramebuffers(int width, int height);
+        void createFramebuffers(const RenderProcess *renderProcess, int width, int height);
+
+    private:
+        const engine::Context *context;
     };
 }

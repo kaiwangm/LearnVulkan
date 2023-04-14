@@ -1,11 +1,18 @@
+#include <limits>
 #include "renderer.hpp"
 #include "context.hpp"
-#include <limits>
+#include "render_process.hpp"
+#include "swapchain.hpp"
+
 
 namespace engine
 {
-    Renderer::Renderer()
+    Renderer::Renderer(const engine::Context *context, const RenderProcess *renderProcess, const Swapchain *swapchain)
     {
+        this->context = context;
+        this->renderProcess = renderProcess;
+        this->swapchain = swapchain;
+
         initCmdPool();
         allocateCmdBuffer();
         createSems();
@@ -14,7 +21,7 @@ namespace engine
 
     Renderer::~Renderer()
     {
-        auto &device = Context::GetInstance().device;
+        auto &device = context->device;
         device.freeCommandBuffers(cmdPool, cmdBuffer);
         device.destroyCommandPool(cmdPool);
         device.destroySemaphore(imageAvailableSemaphore);
@@ -24,11 +31,9 @@ namespace engine
 
     void Renderer::Render()
     {
-        auto &device = Context::GetInstance().device;
-        auto &renderProcess = Context::GetInstance().renderProcess;
-        auto &swapchain = Context::GetInstance().swapchain;
+        const auto &device = context->device;
 
-        auto result = device.acquireNextImageKHR(Context::GetInstance().swapchain->swapchain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore);
+        auto result = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore);
 
         if (result.result != vk::Result::eSuccess)
         {
@@ -70,37 +75,37 @@ namespace engine
             .setWaitSemaphores(imageAvailableSemaphore)
             .setWaitDstStageMask(flags)
             .setSignalSemaphores(imageDrawFinishedSemaphore);
-        Context::GetInstance().graphicsQueue.submit(submitInfo, cmdAvailableFence);
+        context->graphicsQueue.submit(submitInfo, cmdAvailableFence);
 
         vk::PresentInfoKHR presentInfo;
         presentInfo.setImageIndices(imageIndex)
             .setSwapchains(swapchain->swapchain)
             .setWaitSemaphores(imageDrawFinishedSemaphore);
 
-        if (Context::GetInstance().presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess)
+        if (context->presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess)
         {
             throw std::runtime_error("Failed to present swapchain image!");
         }
 
-        if (Context::GetInstance().device.waitForFences(cmdAvailableFence, true, UINT64_MAX) != vk::Result::eSuccess)
+        if (context->device.waitForFences(cmdAvailableFence, true, UINT64_MAX) != vk::Result::eSuccess)
         {
             throw std::runtime_error("Failed to wait for fence!");
         }
 
-        Context::GetInstance().device.resetFences(cmdAvailableFence);
+        context->device.resetFences(cmdAvailableFence);
     }
 
     void Renderer::createSems()
     {
         vk::SemaphoreCreateInfo semInfo;
-        imageAvailableSemaphore = Context::GetInstance().device.createSemaphore(semInfo);
-        imageDrawFinishedSemaphore = Context::GetInstance().device.createSemaphore(semInfo);
+        imageAvailableSemaphore = context->device.createSemaphore(semInfo);
+        imageDrawFinishedSemaphore = context->device.createSemaphore(semInfo);
     }
 
     void Renderer::createFence()
     {
         vk::FenceCreateInfo fenceInfo;
-        cmdAvailableFence = Context::GetInstance().device.createFence(fenceInfo);
+        cmdAvailableFence = context->device.createFence(fenceInfo);
     }
 
     void Renderer::initCmdPool()
@@ -108,7 +113,7 @@ namespace engine
         vk::CommandPoolCreateInfo cmdPoolInfo;
         cmdPoolInfo.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer);
 
-        cmdPool = Context::GetInstance().device.createCommandPool(cmdPoolInfo);
+        cmdPool = context->device.createCommandPool(cmdPoolInfo);
     }
 
     void Renderer::allocateCmdBuffer()
@@ -118,6 +123,6 @@ namespace engine
             .setCommandBufferCount(1)
             .setLevel(vk::CommandBufferLevel::ePrimary);
 
-        cmdBuffer = Context::GetInstance().device.allocateCommandBuffers(cmdBufferInfo)[0];
+        cmdBuffer = context->device.allocateCommandBuffers(cmdBufferInfo)[0];
     }
 }

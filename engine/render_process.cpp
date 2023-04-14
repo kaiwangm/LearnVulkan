@@ -1,9 +1,10 @@
 #include "render_process.hpp"
 #include "context.hpp"
+#include "swapchain.hpp"
 
 namespace engine
 {
-    void RenderProcess::InitPipeline(const Shader &shader, int width, int height)
+    void RenderProcess::InitPipeline(const Shader *shader, int width, int height)
     {
         vk::GraphicsPipelineCreateInfo pipelineInfo;
 
@@ -18,7 +19,7 @@ namespace engine
         pipelineInfo.setPInputAssemblyState(&inputAssembly);
 
         // 3. shader
-        auto stages = shader.GetStage();
+        auto stages = shader->GetStage();
         pipelineInfo.setStages(stages);
 
         // 4. viewport
@@ -64,7 +65,7 @@ namespace engine
             .setLayout(layout);
 
         // result
-        auto result = Context::GetInstance().device.createGraphicsPipeline(nullptr, pipelineInfo);
+        auto result = context->device.createGraphicsPipeline(nullptr, pipelineInfo);
         if (result.result != vk::Result::eSuccess)
         {
             throw std::runtime_error("failed to create graphics pipeline!");
@@ -75,14 +76,14 @@ namespace engine
     void RenderProcess::InitLayout()
     {
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
-        layout = Context::GetInstance().device.createPipelineLayout(pipelineLayoutInfo);
+        layout = context->device.createPipelineLayout(pipelineLayoutInfo);
     }
 
-    void RenderProcess::InitRenderPass()
+    void RenderProcess::InitRenderPass(const Swapchain *swapchain)
     {
         vk::RenderPassCreateInfo renderPassInfo;
         vk::AttachmentDescription attachDesc;
-        attachDesc.setFormat(Context::GetInstance().swapchain->swapchainInfo.format.format)
+        attachDesc.setFormat(swapchain->swapchainInfo.format.format)
             .setInitialLayout(vk::ImageLayout::eUndefined)
             .setFinalLayout(vk::ImageLayout::ePresentSrcKHR)
             .setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -108,14 +109,13 @@ namespace engine
             .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
         renderPassInfo.setDependencies(dependency);
 
-        renderPass = Context::GetInstance().device.createRenderPass(renderPassInfo);
+        renderPass = context->device.createRenderPass(renderPassInfo);
     }
 
     RenderProcess::~RenderProcess()
     {
-        auto &device = Context::GetInstance().device;
-        device.destroyRenderPass(renderPass);
-        device.destroyPipelineLayout(layout);
-        device.destroyPipeline(pipeline);
+        context->device.destroyRenderPass(renderPass);
+        context->device.destroyPipelineLayout(layout);
+        context->device.destroyPipeline(pipeline);
     }
 }

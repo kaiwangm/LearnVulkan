@@ -1,28 +1,44 @@
-#include "engine/engine.hpp"
+#include "engine.hpp"
 #include <string>
 
 namespace engine
 {
-    Shader* shader = nullptr;
-    void Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface, int width, int height)
+    void Engine::Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface, int width, int height)
     {
-        Context::Init(extensions, createSurface);
-        Context::GetInstance().InitSwapchain(width, height);
-        shader = new Shader(std::string("shaders/shader.vert.spv"), std::string("shaders/shader.frag.spv"));
-        Context::GetInstance().renderProcess->InitRenderPass();
-        Context::GetInstance().renderProcess->InitLayout();
-        Context::GetInstance().swapchain->createFramebuffers(width, height);
-        Context::GetInstance().renderProcess->InitPipeline(*shader, width, height);
-        Context::GetInstance().InitRenderer();
+        // Create context
+        context = std::make_unique<Context>(extensions, createSurface);
+        swapchain = std::make_unique<Swapchain>(context.get(), width, height);
+
+        // Create shader
+        shader = std::make_unique<Shader>(context.get(), "assets/shaders/shader.vert.spv", "assets/shaders/shader.frag.spv");
+
+        // Create render process
+        renderProcess = std::make_unique<RenderProcess>(context.get());
+        renderProcess->InitRenderPass(swapchain.get());
+        renderProcess->InitLayout();
+
+        // Create swapchain
+        swapchain->createFramebuffers(renderProcess.get(), width, height);
+
+        // Create pipeline
+        renderProcess->InitPipeline(shader.get(), width, height);
+
+        // Create renderer
+        renderer = std::make_unique<Renderer>(context.get(), renderProcess.get(), swapchain.get());
     }
 
-    void Quit()
+    void Engine::Quit()
     {
-        Context::GetInstance().device.waitIdle();
-        Context::GetInstance().renderer.reset();
-        Context::GetInstance().renderProcess.reset();
-        delete shader;
-        Context::GetInstance().DestroySwapchain();
-        Context::Quit();
+        context->device.waitIdle();
+        renderer.reset();
+        renderProcess.reset();
+        shader.reset();
+        swapchain.reset();
+        context.reset();
+    }
+
+    void Engine::Tick()
+    {
+        renderer->Render();
     }
 }

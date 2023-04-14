@@ -5,6 +5,8 @@
 
 namespace engine
 {
+    class Swapchain;
+
     class RenderProcess final
     {
     public:
@@ -12,10 +14,17 @@ namespace engine
         vk::PipelineLayout layout;
         vk::RenderPass renderPass;
 
+        RenderProcess(const engine::Context *context)
+        {
+            this->context = context;
+        }
         ~RenderProcess();
 
         void InitLayout();
-        void InitRenderPass();
-        void InitPipeline(const Shader& shader, int width, int height);
+        void InitRenderPass(const Swapchain *swapchain);
+        void InitPipeline(const Shader *shader, int width, int height);
+
+    private:
+        const engine::Context *context;
     };
 }

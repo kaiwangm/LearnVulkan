@@ -5,11 +5,7 @@
 #include <memory>
 #include <optional>
 #include <memory>
-#include <cassert>
 #include <iostream>
-#include "swapchain.hpp"
-#include "render_process.hpp"
-#include "renderer.hpp"
 
 namespace engine
 {
@@ -18,10 +14,7 @@ namespace engine
     class Context final
     {
     public:
-        static void Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface);
-        static void Quit();
-        static Context &GetInstance();
-
+        Context(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface);
         ~Context();
 
         struct QueueFamilyIndices final
@@ -41,30 +34,12 @@ namespace engine
         vk::Queue graphicsQueue;
         vk::Queue presentQueue;
         vk::SurfaceKHR surface;
-        std::unique_ptr<Swapchain> swapchain;
-        std::unique_ptr<RenderProcess> renderProcess;
-        std::unique_ptr<Renderer> renderer;
         QueueFamilyIndices queueFamilyIndices;
 
-        void InitSwapchain(int width, int height){
-            swapchain.reset(new Swapchain(width, height));
-        }
-
-        void DestroySwapchain(){
-            swapchain.reset();
-        }
-
-        void InitRenderer(){
-            renderer.reset(new Renderer());
-        }
-
     private:
-        static std::unique_ptr<Context> instance_;
-        Context(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface);
         void CreateInstance(const std::vector<const char *> &extensions);
         void pickupPhysicalDevice();
         void createLogicalDevice();
-        void getQueues();
         void queryQueueFamilyIndices();
     };
 }

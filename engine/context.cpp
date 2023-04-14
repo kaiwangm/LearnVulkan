@@ -1,23 +1,7 @@
-#include "engine/context.hpp"
+#include "context.hpp"
 
 namespace engine
 {
-    std::unique_ptr<Context> Context::instance_ = nullptr;
-    void Context::Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface)
-    {
-        instance_.reset(new Context(extensions, createSurface));
-    }
-
-    void Context::Quit()
-    {
-        instance_.reset();
-    }
-
-    Context &Context::GetInstance()
-    {
-        return *instance_;
-    }
-
     Context::Context(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface)
     {
         CreateInstance(extensions);
@@ -25,8 +9,6 @@ namespace engine
         surface = createSurface(instance);
         queryQueueFamilyIndices();
         createLogicalDevice();
-        getQueues();
-        renderProcess.reset(new RenderProcess());
     }
 
     Context::~Context()
@@ -56,6 +38,11 @@ namespace engine
     void Context::pickupPhysicalDevice()
     {
         auto physicalDevices = instance.enumeratePhysicalDevices();
+        if (physicalDevices.size() == 0)
+        {
+            throw std::runtime_error("Failed to find GPUs with Vulkan support!");
+        }
+
         for (auto &device : physicalDevices)
         {
             auto properties = device.getProperties();
@@ -109,6 +96,13 @@ namespace engine
             .setPEnabledExtensionNames(extensions);
 
         device = phyDevice.createDevice(createInfo);
+        if (!device)
+        {
+            throw std::runtime_error("Failed to create logical device!");
+        }
+
+        graphicsQueue = device.getQueue(queueFamilyIndices.graphicsQueue.value(), 0);
+        presentQueue = device.getQueue(queueFamilyIndices.presentQueue.value(), 0);
     }
 
     void Context::queryQueueFamilyIndices()
@@ -131,11 +125,5 @@ namespace engine
                 break;
             }
         }
-    }
-
-    void Context::getQueues()
-    {
-        graphicsQueue = device.getQueue(queueFamilyIndices.graphicsQueue.value(), 0);
-        presentQueue = device.getQueue(queueFamilyIndices.presentQueue.value(), 0);
     }
 }

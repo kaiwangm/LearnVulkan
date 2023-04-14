@@ -5,7 +5,7 @@
 namespace engine
 {
     std::string ReadWholeFile(const std::string &filePath)
-    {
+    {   
         std::ifstream file(filePath, std::ios::ate | std::ios::binary);
         if (!file.is_open())
         {
@@ -21,8 +21,10 @@ namespace engine
         return buffer;
     }
 
-    Shader::Shader(const std::string &vertexPath, const std::string &fragmentPath)
+    Shader::Shader(const engine::Context *context, const std::string &vertexPath, const std::string &fragmentPath)
     {
+        this->context = context;
+
         std::string vertexSource = ReadWholeFile(vertexPath);
         std::string fragmentSource = ReadWholeFile(fragmentPath);
 
@@ -30,22 +32,21 @@ namespace engine
         vertexInfo.codeSize = vertexSource.size();
         vertexInfo.pCode = reinterpret_cast<const uint32_t *>(vertexSource.data());
 
-        vertexModule = Context::GetInstance().device.createShaderModule(vertexInfo);
+        vertexModule = context->device.createShaderModule(vertexInfo);
 
         vk::ShaderModuleCreateInfo fragmentInfo;
         fragmentInfo.codeSize = fragmentSource.size();
         fragmentInfo.pCode = reinterpret_cast<const uint32_t *>(fragmentSource.data());
 
-        fragmentModule = Context::GetInstance().device.createShaderModule(fragmentInfo);
+        fragmentModule = context->device.createShaderModule(fragmentInfo);
 
         initStage();
     }
 
     Shader::~Shader()
     {
-        auto &device = Context::GetInstance().device;
-        device.destroyShaderModule(vertexModule);
-        device.destroyShaderModule(fragmentModule);
+        context->device.destroyShaderModule(vertexModule);
+        context->device.destroyShaderModule(fragmentModule);
     }
 
     void Shader::initStage()

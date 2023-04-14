@@ -1,10 +1,11 @@
 #include "swapchain.hpp"
-#include "context.hpp"
 
 namespace engine
 {
-    Swapchain::Swapchain(int width, int height)
+    Swapchain::Swapchain(const engine::Context *context, int width, int height)
     {
+        this->context = context;
+
         querySwapchainInfo(width, height);
 
         vk::SwapchainCreateInfoKHR swapchainCreateInfo;
@@ -12,7 +13,7 @@ namespace engine
             .setImageArrayLayers(1)
             .setImageUsage(vk::ImageUsageFlagBits::eColorAttachment)
             .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
-            .setSurface(Context::GetInstance().surface)
+            .setSurface(context->surface)
             .setImageColorSpace(swapchainInfo.format.colorSpace)
             .setImageFormat(swapchainInfo.format.format)
             .setImageExtent(swapchainInfo.imageExtent)
@@ -20,7 +21,7 @@ namespace engine
             .setPreTransform(swapchainInfo.transform)
             .setPresentMode(swapchainInfo.present);
 
-        auto &queueIndicecs = Context::GetInstance().queueFamilyIndices;
+        auto &queueIndicecs = context->queueFamilyIndices;
         if (queueIndicecs.graphicsQueue.value() == queueIndicecs.presentQueue.value())
         {
             swapchainCreateInfo.setImageSharingMode(vk::SharingMode::eExclusive);
@@ -32,7 +33,7 @@ namespace engine
                 .setImageSharingMode(vk::SharingMode::eConcurrent);
         }
 
-        swapchain = Context::GetInstance().device.createSwapchainKHR(swapchainCreateInfo);
+        swapchain = context->device.createSwapchainKHR(swapchainCreateInfo);
 
         getImages();
         createImageViews();
@@ -42,21 +43,26 @@ namespace engine
     {
         for (auto &framebuffer : framebuffers)
         {
-            Context::GetInstance().device.destroyFramebuffer(framebuffer);
+            context->device.destroyFramebuffer(framebuffer);
         }
         for (auto &imageView : imageViews)
         {
-            Context::GetInstance().device.destroyImageView(imageView);
+            context->device.destroyImageView(imageView);
         }
-        Context::GetInstance().device.destroySwapchainKHR(swapchain);
+        context->device.destroySwapchainKHR(swapchain);
     }
 
     void Swapchain::querySwapchainInfo(int width, int height)
     {
-        auto &phyDevice = Context::GetInstance().phyDevice;
-        auto &surface = Context::GetInstance().surface;
+        auto &phyDevice = context->phyDevice;
+        auto &surface = context->surface;
+
+        auto capabilities = phyDevice.getSurfaceCapabilitiesKHR(surface);
+        swapchainInfo.capabilities = capabilities;
+
         auto formats = phyDevice.getSurfaceFormatsKHR(surface);
         swapchainInfo.format = formats[0];
+
         for (const auto &format : formats)
         {
             if (format.format == vk::Format::eR8G8B8A8Sint &&
@@ -67,7 +73,6 @@ namespace engine
             }
         }
 
-        auto capabilities = phyDevice.getSurfaceCapabilitiesKHR(surface);
         swapchainInfo.imageCount = std::clamp<uint32_t>(2, capabilities.minImageCount, capabilities.maxImageCount);
 
         swapchainInfo.imageExtent.width = std::clamp<uint32_t>(width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
@@ -89,7 +94,7 @@ namespace engine
 
     void Swapchain::getImages()
     {
-        images = Context::GetInstance().device.getSwapchainImagesKHR(swapchain);
+        images = context->device.getSwapchainImagesKHR(swapchain);
     }
 
     void Swapchain::createImageViews()
@@ -104,11 +109,11 @@ namespace engine
                 .setFormat(swapchainInfo.format.format)
                 .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 
-            imageViews[i] = Context::GetInstance().device.createImageView(imageViewCreateInfo);
+            imageViews[i] = context->device.createImageView(imageViewCreateInfo);
         }
     }
 
-    void Swapchain::createFramebuffers(int width, int height)
+    void Swapchain::createFramebuffers(const RenderProcess *renderProcess, int width, int height)
     {
         framebuffers.resize(imageViews.size());
         for (size_t i = 0; i < imageViews.size(); i++)
@@ -117,10 +122,10 @@ namespace engine
             framebufferCreateInfo.setAttachments(imageViews[i])
                 .setWidth(width)
                 .setHeight(height)
-                .setRenderPass(Context::GetInstance().renderProcess->renderPass)
+                .setRenderPass(renderProcess->renderPass)
                 .setLayers(1);
 
-            framebuffers[i] = Context::GetInstance().device.createFramebuffer(framebufferCreateInfo);
+            framebuffers[i] = context->device.createFramebuffer(framebufferCreateInfo);
         }
     }
 }
