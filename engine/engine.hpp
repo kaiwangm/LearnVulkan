@@ -11,7 +11,7 @@ namespace engine
 {
     class Engine final
     {
-    private:
+    public:
         std::unique_ptr<Context> context;
         std::unique_ptr<Shader> shader;
         std::unique_ptr<Swapchain> swapchain;
