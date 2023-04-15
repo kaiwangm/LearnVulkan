@@ -65,7 +65,7 @@ namespace engine
         renderProcess->InitLayout();
 
         // Create swapchain
-        swapchain->createFramebuffers(renderProcess.get(), width, height);
+        // swapchain->createFramebuffers(renderProcess.get(), width, height);
 
         // Create pipeline
         renderProcess->InitPipeline(shader.get(), width, height);
@@ -137,7 +137,7 @@ namespace engine
         }
     }
 
-    void Engine::RenderGui(bool& shouldClose)
+    void Engine::RenderGui(bool &shouldClose)
     {
         static bool show_demo_window = false;
         static bool show_another_window = false;
@@ -176,7 +176,7 @@ namespace engine
 
             ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!" and append into it.
 
-            ImGui::Text("Vulkan First Triangle");               // Display some text (you can use a format strings too)
+            ImGui::Text("Vulkan First Triangle");              // Display some text (you can use a format strings too)
             ImGui::Checkbox("Demo Window", &show_demo_window); // Edit bools storing our window open/close state
             ImGui::Checkbox("Another Window", &show_another_window);
 
@@ -328,7 +328,7 @@ namespace engine
         context.reset();
     }
 
-    void Engine::Tick(bool& shouldClose)
+    void Engine::Tick(bool &shouldClose)
     {
         RenderGui(shouldClose);
     }

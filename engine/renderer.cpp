@@ -4,7 +4,6 @@
 #include "render_process.hpp"
 #include "swapchain.hpp"
 
-
 namespace engine
 {
     Renderer::Renderer(const engine::Context *context, const RenderProcess *renderProcess, const Swapchain *swapchain)

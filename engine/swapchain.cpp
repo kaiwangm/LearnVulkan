@@ -33,10 +33,10 @@ namespace engine
                 .setImageSharingMode(vk::SharingMode::eConcurrent);
         }
 
-        swapchain = context->device.createSwapchainKHR(swapchainCreateInfo);
+        // swapchain = context->device.createSwapchainKHR(swapchainCreateInfo);
 
-        getImages();
-        createImageViews();
+        // getImages();
+        // createImageViews();
     }
 
     Swapchain::~Swapchain()

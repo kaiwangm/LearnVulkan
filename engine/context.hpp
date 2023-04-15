@@ -6,6 +6,7 @@
 #include <optional>
 #include <memory>
 #include <iostream>
+#include <functional>
 
 namespace engine
 {
