@@ -35,11 +35,13 @@ namespace engine
         vk::Queue presentQueue;
         vk::SurfaceKHR surface;
         QueueFamilyIndices queueFamilyIndices;
+        vk::DescriptorPool descriptorPool;
 
     private:
         void CreateInstance(const std::vector<const char *> &extensions);
         void pickupPhysicalDevice();
         void createLogicalDevice();
         void queryQueueFamilyIndices();
+        void createDescriptorPool();
     };
 }

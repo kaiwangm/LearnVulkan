@@ -5,9 +5,6 @@
 #include "SDL_vulkan.h"
 
 #include "engine/engine.hpp"
-#include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_vulkan.h"
 
 class Sandbox
 {
@@ -25,7 +22,7 @@ public:
         window = SDL_CreateWindow(
             "LearnVulkan",
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
+            width, height, SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN | SDL_WINDOW_ALLOW_HIGHDPI);
 
         if (window == nullptr)
         {
@@ -49,6 +46,8 @@ public:
                 return surface;
             },
             width, height);
+
+        engine.InitImGui(window, width, height);
     }
     ~Sandbox()
     {
@@ -66,13 +65,14 @@ public:
         {
             while (SDL_PollEvent(&event))
             {
+                ImGui_ImplSDL2_ProcessEvent(&event);
                 if (event.type == SDL_QUIT)
                 {
                     shouldClose = true;
                 }
-
-                engine.Tick();
             }
+
+            engine.Tick(shouldClose);
         }
     }
 
@@ -87,7 +87,7 @@ private:
 
 int main(int argc, char **argv)
 {
-    Sandbox sandbox(800, 600);
+    Sandbox sandbox(1200, 800);
     sandbox.Run();
 
     return 0;

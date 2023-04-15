@@ -15,3 +15,6 @@ target_link_libraries(imgui PUBLIC SDL2)
 target_include_directories(imgui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui")
 target_include_directories(imgui PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/backends")
 
+add_executable(example_sdl2_vulkan)
+target_sources(example_sdl2_vulkan PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/external/imgui/examples/example_sdl2_vulkan/main.cpp")
+target_link_libraries(example_sdl2_vulkan PUBLIC Vulkan::Vulkan SDL2 imgui)

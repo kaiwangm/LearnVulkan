@@ -29,18 +29,18 @@ namespace engine
         device.destroyFence(cmdAvailableFence);
     }
 
-    void Renderer::Render()
+    void Renderer::Render(VkFramebuffer framebuffer)
     {
         const auto &device = context->device;
 
-        auto result = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore);
+        // auto result = device.acquireNextImageKHR(swapchain->swapchain, std::numeric_limits<uint64_t>::max(), imageAvailableSemaphore);
 
-        if (result.result != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to acquire swapchain image!");
-        }
+        // if (result.result != vk::Result::eSuccess)
+        // {
+        //     throw std::runtime_error("Failed to acquire swapchain image!");
+        // }
 
-        auto imageIndex = result.value;
+        // auto imageIndex = result.value;
 
         cmdBuffer.reset();
 
@@ -51,13 +51,13 @@ namespace engine
             vk::RenderPassBeginInfo renderPassBeginInfo;
             vk::Rect2D renderArea;
             vk::ClearValue clearValue;
-            clearValue.setColor(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 1.0f}));
+            clearValue.setColor(vk::ClearColorValue(std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f}));
             renderArea.setOffset({0, 0})
                 .setExtent(swapchain->swapchainInfo.imageExtent);
 
             renderPassBeginInfo.setRenderPass(renderProcess->renderPass)
                 .setRenderArea(renderArea)
-                .setFramebuffer(swapchain->framebuffers[imageIndex])
+                .setFramebuffer(framebuffer)
                 .setClearValues(clearValue);
 
             cmdBuffer.beginRenderPass(renderPassBeginInfo, {});
@@ -71,21 +71,17 @@ namespace engine
 
         vk::SubmitInfo submitInfo;
         vk::PipelineStageFlags flags = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-        submitInfo.setCommandBuffers(cmdBuffer)
-            .setWaitSemaphores(imageAvailableSemaphore)
-            .setWaitDstStageMask(flags)
-            .setSignalSemaphores(imageDrawFinishedSemaphore);
+        submitInfo.setCommandBuffers(cmdBuffer);
         context->graphicsQueue.submit(submitInfo, cmdAvailableFence);
 
-        vk::PresentInfoKHR presentInfo;
-        presentInfo.setImageIndices(imageIndex)
-            .setSwapchains(swapchain->swapchain)
-            .setWaitSemaphores(imageDrawFinishedSemaphore);
+        // vk::PresentInfoKHR presentInfo;
+        // presentInfo.setImageIndices(imageIndex)
+        //     .setSwapchains(swapchain->swapchain);
 
-        if (context->presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to present swapchain image!");
-        }
+        // if (context->presentQueue.presentKHR(presentInfo) != vk::Result::eSuccess)
+        // {
+        //     throw std::runtime_error("Failed to present swapchain image!");
+        // }
 
         if (context->device.waitForFences(cmdAvailableFence, true, UINT64_MAX) != vk::Result::eSuccess)
         {

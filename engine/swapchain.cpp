@@ -65,7 +65,7 @@ namespace engine
 
         for (const auto &format : formats)
         {
-            if (format.format == vk::Format::eR8G8B8A8Sint &&
+            if (format.format == vk::Format::eB8G8R8A8Unorm &&
                 format.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
             {
                 swapchainInfo.format = format.format;

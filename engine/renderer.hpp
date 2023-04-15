@@ -14,7 +14,7 @@ namespace engine
         Renderer(const engine::Context *context, const RenderProcess *renderProcess, const Swapchain *swapchain);
         ~Renderer();
 
-        void Render();
+        void Render(VkFramebuffer framebuffer);
 
     private:
         vk::CommandPool cmdPool;
