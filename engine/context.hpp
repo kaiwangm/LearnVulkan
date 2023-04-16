@@ -20,6 +20,13 @@ namespace engine
         glm::vec2 texCoord;
     };
 
+    struct UniformBufferObject
+    {
+        glm::mat4 model;
+        glm::mat4 view;
+        glm::mat4 proj;
+    };
+
     class Context final
     {
     public:
@@ -45,12 +52,16 @@ namespace engine
         vk::SurfaceKHR surface;
         QueueFamilyIndices queueFamilyIndices;
         vk::DescriptorPool descriptorPool;
+        std::vector<vk::DescriptorSet> descriptorSets;
+        vk::DescriptorSetLayout descriptorSetLayout;
 
-    private:
+    public:
         void CreateInstance(const std::vector<const char *> &extensions);
         void pickupPhysicalDevice();
         void createLogicalDevice();
         void queryQueueFamilyIndices();
         void createDescriptorPool();
+        void createDescriptorSetLayout();
+        void createDescriptorSets(std::vector<vk::Buffer>& uniformBuffers, uint32_t swapChainImagesCount);
     };
 }

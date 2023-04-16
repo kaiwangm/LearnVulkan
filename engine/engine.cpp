@@ -52,6 +52,9 @@ namespace engine
 
     void Engine::Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface, int width, int height)
     {
+        this->width = width;
+        this->height = height;
+
         // Create context
         context = std::make_unique<Context>(extensions, createSurface);
         swapchain = std::make_unique<Swapchain>(context.get(), width, height);
@@ -146,7 +149,6 @@ namespace engine
         // Resize swap chain?
         if (g_SwapChainRebuild)
         {
-            int width, height;
             SDL_GetWindowSize(window, &width, &height);
             if (width > 0 && height > 0)
             {
@@ -154,6 +156,13 @@ namespace engine
                 ImGui_ImplVulkanH_CreateOrResizeWindow(context->instance, context->phyDevice, context->device, &g_MainWindowData, context->queueFamilyIndices.graphicsQueue.value(), nullptr, width, height, 2);
                 g_MainWindowData.FrameIndex = 0;
                 g_SwapChainRebuild = false;
+
+                // reset view port
+                renderProcess.reset();
+                renderProcess = std::make_unique<RenderProcess>(context.get());
+                renderProcess->InitRenderPass(swapchain.get());
+                renderProcess->InitLayout();
+                renderProcess->InitPipeline(shader.get(), width, height);
             }
         }
 
@@ -242,6 +251,8 @@ namespace engine
         }
         check_vk_result(err);
 
+        UpdateUniformBuffer(wd->FrameIndex);
+
         ImGui_ImplVulkanH_Frame *fd = &wd->Frames[wd->FrameIndex];
         {
             err = vkWaitForFences(context->device, 1, &fd->Fence, VK_TRUE, UINT64_MAX); // wait indefinitely instead of periodically checking
@@ -272,10 +283,12 @@ namespace engine
         }
 
         vkCmdBindPipeline(fd->CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderProcess->pipeline);
+        vkCmdBindDescriptorSets(fd->CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderProcess->layout, 0, 1, (VkDescriptorSet *)context->descriptorSets.data(), 0, nullptr);
         VkBuffer vertexBuffers[] = {(VkBuffer)vertexBuffer};
         VkDeviceSize offsets[] = {0};
         vkCmdBindVertexBuffers(fd->CommandBuffer, 0, 1, vertexBuffers, offsets);
-        vkCmdDraw(fd->CommandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+        vkCmdBindIndexBuffer(fd->CommandBuffer, (VkBuffer)indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(fd->CommandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
 
         // Record dear imgui primitives into command buffer
         ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
@@ -327,6 +340,7 @@ namespace engine
     {
         context->device.waitIdle();
 
+        DestroyUniformBuffers();
         DestroyObjects();
 
         ImGui_ImplVulkan_Shutdown();
@@ -347,10 +361,22 @@ namespace engine
 
     void Engine::CreateObjects()
     {
+        // vertices = {
+        //     {{0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+        //     {{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+        //     {{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+
+        // cube
         vertices = {
-            {{0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+            {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+            {{0.5f, -0.5f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+            {{-0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        };
 
         vk::BufferCreateInfo vertexBufferInfo;
         vertexBufferInfo.size = sizeof(Vertex) * vertices.size();
@@ -364,24 +390,6 @@ namespace engine
 
         vk::MemoryRequirements memRequirements;
         context->device.getBufferMemoryRequirements(vertexBuffer, &memRequirements);
-
-        // lambda to find memory type
-        auto findMemoryType = [&](uint32_t typeFilter, vk::MemoryPropertyFlags properties)
-        {
-            vk::PhysicalDeviceMemoryProperties memProperties;
-            context->phyDevice.getMemoryProperties(&memProperties);
-
-            for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-            {
-                if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-                {
-                    return i;
-                }
-            }
-
-            throw std::runtime_error("Failed to find suitable memory type");
-        };
-
         vk::MemoryAllocateInfo allocInfo;
         allocInfo.allocationSize = memRequirements.size;
         allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
@@ -399,11 +407,143 @@ namespace engine
         }
         memcpy(data, vertices.data(), (size_t)vertexBufferInfo.size);
         context->device.unmapMemory(vertexBufferMemory);
+
+        CreateIndexBuffer();
     }
 
     void Engine::DestroyObjects()
     {
+        DestroyIndexBuffer();
         context->device.destroyBuffer(vertexBuffer);
         context->device.freeMemory(vertexBufferMemory);
+    }
+
+    void Engine::CreateIndexBuffer()
+    {
+        // indices = {0, 1, 2};
+
+        // cube
+        indices = {
+            2, 1, 0,
+            2, 0, 3,
+            1, 5, 4,
+            1, 4, 0,
+            7, 4, 5,
+            7, 5, 6,
+            3, 0, 4,
+            3, 4, 7,
+            6, 5, 1,
+            6, 1, 2,
+            3, 7, 6,
+            3, 6, 2,
+        };
+
+        vk::BufferCreateInfo indexBufferInfo;
+        indexBufferInfo.size = sizeof(uint32_t) * indices.size();
+        indexBufferInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
+        indexBufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+        if (context->device.createBuffer(&indexBufferInfo, nullptr, &indexBuffer) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to create index buffer");
+        }
+
+        vk::MemoryRequirements memRequirements;
+        context->device.getBufferMemoryRequirements(indexBuffer, &memRequirements);
+        vk::MemoryAllocateInfo allocInfo;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+        if (context->device.allocateMemory(&allocInfo, nullptr, &indexBufferMemory) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to allocate index buffer memory");
+        }
+
+        context->device.bindBufferMemory(indexBuffer, indexBufferMemory, 0);
+
+        void *indexData;
+        if (context->device.mapMemory(indexBufferMemory, 0, indexBufferInfo.size, vk::MemoryMapFlags(), &indexData) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to map index buffer memory");
+        }
+        memcpy(indexData, indices.data(), (size_t)indexBufferInfo.size);
+        context->device.unmapMemory(indexBufferMemory);
+    }
+
+    void Engine::DestroyIndexBuffer()
+    {
+        context->device.destroyBuffer(indexBuffer);
+        context->device.freeMemory(indexBufferMemory);
+    }
+
+    void Engine::CreateUniformBuffers()
+    {
+        vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+
+        auto *wd = &g_MainWindowData;
+
+        uniformBuffers.resize(wd->ImageCount);
+        uniformBuffersMemory.resize(wd->ImageCount);
+
+        for (size_t i = 0; i < wd->ImageCount; i++)
+        {
+            vk::BufferCreateInfo bufferInfo;
+            bufferInfo.size = bufferSize;
+            bufferInfo.usage = vk::BufferUsageFlagBits::eUniformBuffer;
+            bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+            if (context->device.createBuffer(&bufferInfo, nullptr, &uniformBuffers[i]) != vk::Result::eSuccess)
+            {
+                throw std::runtime_error("Failed to create uniform buffer");
+            }
+
+            vk::MemoryRequirements memRequirements;
+            context->device.getBufferMemoryRequirements(uniformBuffers[i], &memRequirements);
+
+            vk::MemoryAllocateInfo allocInfo;
+            allocInfo.allocationSize = memRequirements.size;
+            allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+            if (context->device.allocateMemory(&allocInfo, nullptr, &uniformBuffersMemory[i]) != vk::Result::eSuccess)
+            {
+                throw std::runtime_error("Failed to allocate uniform buffer memory");
+            }
+
+            context->device.bindBufferMemory(uniformBuffers[i], uniformBuffersMemory[i], 0);
+        }
+
+        context->createDescriptorSets(uniformBuffers, wd->ImageCount);
+    }
+
+    void Engine::DestroyUniformBuffers()
+    {
+        auto *wd = &g_MainWindowData;
+
+        for (size_t i = 0; i < wd->ImageCount; i++)
+        {
+            context->device.destroyBuffer(uniformBuffers[i]);
+            context->device.freeMemory(uniformBuffersMemory[i]);
+        }
+    }
+
+    void Engine::UpdateUniformBuffer(uint32_t currentImage)
+    {
+        static auto startTime = std::chrono::high_resolution_clock::now();
+
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+        UniformBufferObject ubo = {};
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.view = glm::lookAt(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        ubo.proj = glm::perspective(glm::radians(60.0f), width / (float)height, 0.1f, 10.0f);
+
+        void *uboData;
+        if (context->device.mapMemory(uniformBuffersMemory[currentImage], 0, sizeof(ubo), vk::MemoryMapFlags(), &uboData) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to map uniform buffer memory");
+        }
+        memcpy(uboData, &ubo, sizeof(ubo));
+        context->device.unmapMemory(uniformBuffersMemory[currentImage]);
     }
 }

@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <chrono>
 #include "vulkan/vulkan.hpp"
 #include "context.hpp"
 #include "shader.hpp"
@@ -12,6 +13,7 @@
 #include "imgui_impl_vulkan.h"
 
 #include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 
 namespace engine
 {
@@ -35,12 +37,41 @@ namespace engine
         void FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data);
         void FramePresent(ImGui_ImplVulkanH_Window *wd);
 
+        // find memory type
+        auto findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
+        {
+            vk::PhysicalDeviceMemoryProperties memProperties;
+            context->phyDevice.getMemoryProperties(&memProperties);
+
+            for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+            {
+                if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+                {
+                    return i;
+                }
+            }
+
+            throw std::runtime_error("Failed to find suitable memory type");
+        };
+
         std::vector<Vertex> vertices;
         void *data;
         vk::Buffer vertexBuffer;
         vk::DeviceMemory vertexBufferMemory;
         void CreateObjects();
         void DestroyObjects();
+
+        std::vector<uint32_t> indices;
+        vk::Buffer indexBuffer;
+        vk::DeviceMemory indexBufferMemory;
+        void CreateIndexBuffer();
+        void DestroyIndexBuffer();
+
+        std::vector<vk::Buffer> uniformBuffers;
+        std::vector<vk::DeviceMemory> uniformBuffersMemory;
+        void CreateUniformBuffers();
+        void DestroyUniformBuffers();
+        void UpdateUniformBuffer(uint32_t currentImage);
 
     public:
         Engine() = default;
@@ -49,5 +80,9 @@ namespace engine
         void Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface, int width, int height);
         void Quit();
         void Tick(bool &shouldClose);
+
+    private:
+        int width;
+        int height;
     };
 }

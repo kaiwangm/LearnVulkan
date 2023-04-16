@@ -11,10 +11,12 @@ namespace engine
         queryQueueFamilyIndices();
         createLogicalDevice();
         createDescriptorPool();
+        createDescriptorSetLayout();
     }
 
     Context::~Context()
     {
+        device.destroyDescriptorSetLayout(descriptorSetLayout);
         device.destroyDescriptorPool(descriptorPool);
         // instance.destroySurfaceKHR(surface);
         device.destroy();
@@ -152,5 +154,47 @@ namespace engine
         pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
         pool_info.pPoolSizes = pool_sizes;
         descriptorPool = device.createDescriptorPool(pool_info);
+    }
+
+    void Context::createDescriptorSets(std::vector<vk::Buffer>& uniformBuffers, uint32_t swapChainImagesCount)
+    {
+        std::vector<vk::DescriptorSetLayout> layouts(2, descriptorSetLayout);
+        vk::DescriptorSetAllocateInfo allocInfo;
+        allocInfo.setDescriptorPool(descriptorPool)
+            .setDescriptorSetCount(swapChainImagesCount)
+            .setPSetLayouts(layouts.data());
+
+        descriptorSets = device.allocateDescriptorSets(allocInfo);
+
+        for (size_t i = 0; i < swapChainImagesCount; i++)
+        {
+            vk::DescriptorBufferInfo bufferInfo;
+            bufferInfo.setBuffer(uniformBuffers[i])
+                .setOffset(0)
+                .setRange(sizeof(UniformBufferObject));
+
+            vk::WriteDescriptorSet descriptorWrite;
+            descriptorWrite.setDstSet(descriptorSets[i])
+                .setDstBinding(0)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                .setDescriptorCount(1)
+                .setPBufferInfo(&bufferInfo);
+
+            device.updateDescriptorSets(descriptorWrite, nullptr);
+        }
+    }
+
+    void Context::createDescriptorSetLayout()
+    {
+        vk::DescriptorSetLayoutCreateInfo layoutInfo;
+        vk::DescriptorSetLayoutBinding binding;
+        binding.setBinding(0)
+            .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+            .setStageFlags(vk::ShaderStageFlagBits::eVertex)
+            .setDescriptorCount(1);
+        layoutInfo.setBindings(binding);
+
+        descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
     }
 }

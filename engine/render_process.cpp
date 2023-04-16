@@ -98,6 +98,7 @@ namespace engine
     void RenderProcess::InitLayout()
     {
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
+        pipelineLayoutInfo.setSetLayouts(context->descriptorSetLayout);
         layout = context->device.createPipelineLayout(pipelineLayoutInfo);
     }
 

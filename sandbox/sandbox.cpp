@@ -51,6 +51,7 @@ public:
         engine.InitImGui(window, width, height);
 
         engine.CreateObjects();
+        engine.CreateUniformBuffers();
     }
     ~Sandbox()
     {
