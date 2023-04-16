@@ -8,9 +8,17 @@
 #include <iostream>
 #include <functional>
 
+#include "glm/glm.hpp"
+
 namespace engine
 {
     using CreateSurfaceFunction = std::function<VkSurfaceKHR(vk::Instance)>;
+    struct Vertex
+    {
+        glm::vec3 position;
+        glm::vec4 color;
+        glm::vec2 texCoord;
+    };
 
     class Context final
     {

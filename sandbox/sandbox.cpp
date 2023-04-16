@@ -3,6 +3,7 @@
 
 #include "SDL.h"
 #include "SDL_vulkan.h"
+#include "glm/glm.hpp"
 
 #include "engine/engine.hpp"
 
@@ -48,6 +49,8 @@ public:
             width, height);
 
         engine.InitImGui(window, width, height);
+
+        engine.CreateObjects();
     }
     ~Sandbox()
     {

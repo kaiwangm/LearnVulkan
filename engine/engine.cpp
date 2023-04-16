@@ -183,6 +183,13 @@ namespace engine
             // ImGui::SliderFloat("float", &f, 0.0f, 1.0f);             // Edit 1 float using a slider from 0.0f to 1.0f
             ImGui::ColorEdit3("clear color", (float *)&clear_color); // Edit 3 floats representing a color
 
+            ImGui::SliderFloat3("vertice:0 position", (float *)&((Vertex *)data)[0].position, -1.0f, 1.0f);
+            ImGui::SliderFloat3("vertice:1 position", (float *)&((Vertex *)data)[1].position, -1.0f, 1.0f);
+            ImGui::SliderFloat3("vertice:2 position", (float *)&((Vertex *)data)[2].position, -1.0f, 1.0f);
+            ImGui::ColorEdit4("vertice:0 color", (float *)&((Vertex *)data)[0].color);
+            ImGui::ColorEdit4("vertice:1 color", (float *)&((Vertex *)data)[1].color);
+            ImGui::ColorEdit4("vertice:2 color", (float *)&((Vertex *)data)[2].color);
+
             if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
                 counter++;
             ImGui::SameLine();
@@ -265,7 +272,10 @@ namespace engine
         }
 
         vkCmdBindPipeline(fd->CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderProcess->pipeline);
-        vkCmdDraw(fd->CommandBuffer, 3, 1, 0, 0);
+        VkBuffer vertexBuffers[] = {(VkBuffer)vertexBuffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(fd->CommandBuffer, 0, 1, vertexBuffers, offsets);
+        vkCmdDraw(fd->CommandBuffer, static_cast<uint32_t>(vertices.size()), 1, 0, 0);
 
         // Record dear imgui primitives into command buffer
         ImGui_ImplVulkan_RenderDrawData(draw_data, fd->CommandBuffer);
@@ -317,6 +327,8 @@ namespace engine
     {
         context->device.waitIdle();
 
+        DestroyObjects();
+
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplSDL2_Shutdown();
         CleanupVulkanWindow();
@@ -331,5 +343,67 @@ namespace engine
     void Engine::Tick(bool &shouldClose)
     {
         RenderGui(shouldClose);
+    }
+
+    void Engine::CreateObjects()
+    {
+        vertices = {
+            {{0.0f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+            {{0.5f, 0.5f, 0.0f}, {0.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+
+        vk::BufferCreateInfo vertexBufferInfo;
+        vertexBufferInfo.size = sizeof(Vertex) * vertices.size();
+        vertexBufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
+        vertexBufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+        if (context->device.createBuffer(&vertexBufferInfo, nullptr, &vertexBuffer) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to create vertex buffer");
+        }
+
+        vk::MemoryRequirements memRequirements;
+        context->device.getBufferMemoryRequirements(vertexBuffer, &memRequirements);
+
+        // lambda to find memory type
+        auto findMemoryType = [&](uint32_t typeFilter, vk::MemoryPropertyFlags properties)
+        {
+            vk::PhysicalDeviceMemoryProperties memProperties;
+            context->phyDevice.getMemoryProperties(&memProperties);
+
+            for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+            {
+                if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+                {
+                    return i;
+                }
+            }
+
+            throw std::runtime_error("Failed to find suitable memory type");
+        };
+
+        vk::MemoryAllocateInfo allocInfo;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+        if (context->device.allocateMemory(&allocInfo, nullptr, &vertexBufferMemory) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to allocate vertex buffer memory");
+        }
+
+        context->device.bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
+
+        if (context->device.mapMemory(vertexBufferMemory, 0, vertexBufferInfo.size, vk::MemoryMapFlags(), &data) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to map vertex buffer memory");
+        }
+        memcpy(data, vertices.data(), (size_t)vertexBufferInfo.size);
+        context->device.unmapMemory(vertexBufferMemory);
+    }
+
+    void Engine::DestroyObjects()
+    {
+        context->device.destroyBuffer(vertexBuffer);
+        context->device.freeMemory(vertexBufferMemory);
     }
 }

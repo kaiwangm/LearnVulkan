@@ -11,6 +11,8 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_vulkan.h"
 
+#include "glm/glm.hpp"
+
 namespace engine
 {
     class Engine final
@@ -32,6 +34,13 @@ namespace engine
         void RenderGui(bool &shouldClose);
         void FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data);
         void FramePresent(ImGui_ImplVulkanH_Window *wd);
+
+        std::vector<Vertex> vertices;
+        void *data;
+        vk::Buffer vertexBuffer;
+        vk::DeviceMemory vertexBufferMemory;
+        void CreateObjects();
+        void DestroyObjects();
 
     public:
         Engine() = default;

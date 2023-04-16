@@ -10,6 +10,28 @@ namespace engine
 
         // 1. vertex input
         vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
+        vk::VertexInputBindingDescription binding;
+        binding.setBinding(0)
+            .setInputRate(vk::VertexInputRate::eVertex)
+            .setStride(sizeof(Vertex));
+
+        vk::VertexInputAttributeDescription attr[3];
+        attr[0].setBinding(0)
+            .setFormat(vk::Format::eR32G32B32Sfloat)
+            .setLocation(0)
+            .setOffset(offsetof(Vertex, position));
+        attr[1].setBinding(0)
+            .setFormat(vk::Format::eR32G32B32A32Sfloat)
+            .setLocation(1)
+            .setOffset(offsetof(Vertex, color));
+        attr[2].setBinding(0)
+            .setFormat(vk::Format::eR32G32Sfloat)
+            .setLocation(2)
+            .setOffset(offsetof(Vertex, texCoord));
+
+        vertexInputInfo.setVertexBindingDescriptions(binding)
+            .setVertexAttributeDescriptions(attr);
+
         pipelineInfo.setPVertexInputState(&vertexInputInfo);
 
         // 2. vertex input assembly

@@ -8,6 +8,7 @@ find_package(Vulkan REQUIRED)
 find_package(SDL2 REQUIRED)
 find_program(GLSLC_PROGRAM glslc REQUIRED)
 
+include(cmake/glm.txt)
 include(cmake/imgui.txt)
 
 add_library(SDL2 ALIAS SDL2::SDL2)
