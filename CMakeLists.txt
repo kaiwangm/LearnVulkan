@@ -10,6 +10,7 @@ find_program(GLSLC_PROGRAM glslc REQUIRED)
 
 include(cmake/glm.txt)
 include(cmake/imgui.txt)
+include(cmake/stb.txt)
 
 add_library(SDL2 ALIAS SDL2::SDL2)
 
