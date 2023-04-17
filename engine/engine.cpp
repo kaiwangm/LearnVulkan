@@ -75,6 +75,8 @@ namespace engine
 
         // Create renderer
         renderer = std::make_unique<Renderer>(context.get(), renderProcess.get(), swapchain.get());
+
+        staticMesh = std::make_unique<StaticMesh>("assets/models/CornellBox/CornellBox-Original.obj");
     }
 
     void Engine::InitImGui(SDL_Window *window, int width, int height)
@@ -367,16 +369,18 @@ namespace engine
         //     {{-0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
 
         // cube
-        vertices = {
-            {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-            {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
-            {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
-            {{0.5f, -0.5f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-            {{-0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
-            {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        };
+        // vertices = {
+        //     {{0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+        //     {{0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 0.0f, 1.0f}, {1.0f, 0.0f}},
+        //     {{0.5f, -0.5f, -0.5f}, {0.0f, 0.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+        //     {{0.5f, -0.5f, 0.5f}, {1.0f, 1.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        //     {{-0.5f, 0.5f, 0.5f}, {1.0f, 0.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+        //     {{-0.5f, 0.5f, -0.5f}, {0.0f, 1.0f, 1.0f, 1.0f}, {1.0f, 0.0f}},
+        //     {{-0.5f, -0.5f, -0.5f}, {1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f}},
+        //     {{-0.5f, -0.5f, 0.5f}, {0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        // };
+
+        vertices = staticMesh->get_one_vertices();
 
         vk::BufferCreateInfo vertexBufferInfo;
         vertexBufferInfo.size = sizeof(Vertex) * vertices.size();
@@ -423,20 +427,22 @@ namespace engine
         // indices = {0, 1, 2};
 
         // cube
-        indices = {
-            2, 1, 0,
-            2, 0, 3,
-            1, 5, 4,
-            1, 4, 0,
-            7, 4, 5,
-            7, 5, 6,
-            3, 0, 4,
-            3, 4, 7,
-            6, 5, 1,
-            6, 1, 2,
-            3, 7, 6,
-            3, 6, 2,
-        };
+        // indices = {
+        //     2, 1, 0,
+        //     2, 0, 3,
+        //     1, 5, 4,
+        //     1, 4, 0,
+        //     7, 4, 5,
+        //     7, 5, 6,
+        //     3, 0, 4,
+        //     3, 4, 7,
+        //     6, 5, 1,
+        //     6, 1, 2,
+        //     3, 7, 6,
+        //     3, 6, 2,
+        // };
+
+        indices = staticMesh->get_one_indices();
 
         vk::BufferCreateInfo indexBufferInfo;
         indexBufferInfo.size = sizeof(uint32_t) * indices.size();
@@ -534,9 +540,11 @@ namespace engine
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
         UniformBufferObject ubo = {};
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.view = glm::lookAt(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        ubo.proj = glm::perspective(glm::radians(60.0f), width / (float)height, 0.1f, 10.0f);
+        // ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+        ubo.model = glm::mat4(1.0f);
+        // ubo.view = glm::lookAt(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        ubo.view = glm::lookAt(glm::vec3(0.0f, 1.0f, 2.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+        ubo.proj = glm::perspective(glm::radians(60.0f), width / (float)height, 0.1f, 1000.0f);
 
         void *uboData;
         if (context->device.mapMemory(uniformBuffersMemory[currentImage], 0, sizeof(ubo), vk::MemoryMapFlags(), &uboData) != vk::Result::eSuccess)

@@ -15,6 +15,8 @@
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 
+#include "StaticMesh.hpp"
+
 namespace engine
 {
     class Engine final
@@ -84,5 +86,6 @@ namespace engine
     private:
         int width;
         int height;
+        std::unique_ptr<StaticMesh> staticMesh;
     };
 }

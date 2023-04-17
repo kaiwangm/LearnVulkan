@@ -7,8 +7,9 @@ project (LearnVulkan LANGUAGES CXX)
 find_package(Vulkan REQUIRED)
 find_package(SDL2 REQUIRED)
 find_program(GLSLC_PROGRAM glslc REQUIRED)
+find_package(assimp REQUIRED)
+find_package(glm REQUIRED)
 
-include(cmake/glm.txt)
 include(cmake/imgui.txt)
 include(cmake/stb.txt)
 
@@ -29,6 +30,8 @@ foreach(SHADER ${SHADERS})
 endforeach()
 # copy shaders
 file(COPY ${CMAKE_CURRENT_BINARY_DIR}/assets DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/sandbox)
+# copy models
+file(COPY ${CMAKE_CURRENT_LIST_DIR}/assets/models DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/sandbox/assets)
 
 # set Root directory
 set(ROOT_DIR ${CMAKE_CURRENT_LIST_DIR})
