@@ -158,7 +158,7 @@ namespace engine
 
     void Context::createDescriptorSets(std::vector<vk::Buffer>& uniformBuffers, uint32_t swapChainImagesCount)
     {
-        std::vector<vk::DescriptorSetLayout> layouts(2, descriptorSetLayout);
+        std::vector<vk::DescriptorSetLayout> layouts(swapChainImagesCount, descriptorSetLayout);
         vk::DescriptorSetAllocateInfo allocInfo;
         allocInfo.setDescriptorPool(descriptorPool)
             .setDescriptorSetCount(swapChainImagesCount)
