@@ -16,6 +16,7 @@
 #include "glm/gtc/matrix_transform.hpp"
 
 #include "StaticMesh.hpp"
+#include "Image.hpp"
 
 namespace engine
 {
@@ -56,8 +57,81 @@ namespace engine
             throw std::runtime_error("Failed to find suitable memory type");
         };
 
+        void createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::Buffer &buffer, vk::DeviceMemory &bufferMemory)
+        {
+            vk::BufferCreateInfo bufferInfo = {};
+            bufferInfo.size = size;
+            bufferInfo.usage = usage;
+            bufferInfo.sharingMode = vk::SharingMode::eExclusive;
+
+            if (context->device.createBuffer(&bufferInfo, nullptr, &buffer) != vk::Result::eSuccess)
+            {
+                throw std::runtime_error("Failed to create buffer");
+            }
+
+            vk::MemoryRequirements memRequirements;
+            context->device.getBufferMemoryRequirements(buffer, &memRequirements);
+
+            vk::MemoryAllocateInfo allocInfo = {};
+            allocInfo.allocationSize = memRequirements.size;
+            allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
+
+            if (context->device.allocateMemory(&allocInfo, nullptr, &bufferMemory) != vk::Result::eSuccess)
+            {
+                throw std::runtime_error("Failed to allocate buffer memory");
+            }
+
+            context->device.bindBufferMemory(buffer, bufferMemory, 0);
+        }
+
+        void copyBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size){
+            vk::CommandPool commandPool;
+            vk::CommandPoolCreateInfo poolInfo = {};
+            poolInfo.flags = vk::CommandPoolCreateFlagBits::eTransient;
+
+            if (context->device.createCommandPool(&poolInfo, nullptr, &commandPool) != vk::Result::eSuccess)
+            {
+                throw std::runtime_error("Failed to create command pool");
+            }
+
+            vk::CommandBufferAllocateInfo allocInfo = {};
+            allocInfo.level = vk::CommandBufferLevel::ePrimary;
+            allocInfo.commandPool = commandPool;
+            allocInfo.commandBufferCount = 1;
+
+            vk::CommandBuffer commandBuffer;
+            if(context->device.allocateCommandBuffers(&allocInfo, &commandBuffer) != vk::Result::eSuccess){
+                throw std::runtime_error("Failed to allocate command buffer");
+            }
+
+            vk::CommandBufferBeginInfo beginInfo = {};
+            beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+
+            if(commandBuffer.begin(&beginInfo) != vk::Result::eSuccess){
+                throw std::runtime_error("Failed to begin recording command buffer");
+            }
+
+            vk::BufferCopy copyRegion = {};
+            copyRegion.size = size;
+            commandBuffer.copyBuffer(srcBuffer, dstBuffer, 1, &copyRegion);
+
+            commandBuffer.end();
+
+            vk::SubmitInfo submitInfo = {};
+            submitInfo.commandBufferCount = 1;
+            submitInfo.pCommandBuffers = &commandBuffer;
+
+            if(context->graphicsQueue.submit(1, &submitInfo, nullptr) != vk::Result::eSuccess){
+                throw std::runtime_error("Failed to submit copy buffer command");
+            }
+            context->graphicsQueue.waitIdle();
+
+            context->device.freeCommandBuffers(commandPool, 1, &commandBuffer);
+
+            context->device.destroyCommandPool(commandPool, nullptr);
+        }
+
         std::vector<Vertex> vertices;
-        void *data;
         vk::Buffer vertexBuffer;
         vk::DeviceMemory vertexBufferMemory;
         void CreateObjects();
@@ -75,6 +149,8 @@ namespace engine
         void DestroyUniformBuffers();
         void UpdateUniformBuffer(uint32_t currentImage);
 
+
+
     public:
         Engine() = default;
         ~Engine() = default;
@@ -87,5 +163,6 @@ namespace engine
         int width;
         int height;
         std::unique_ptr<StaticMesh> staticMesh;
+        std::unique_ptr<Image> image;
     };
 }

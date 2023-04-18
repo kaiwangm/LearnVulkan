@@ -77,6 +77,7 @@ namespace engine
         renderer = std::make_unique<Renderer>(context.get(), renderProcess.get(), swapchain.get());
 
         staticMesh = std::make_unique<StaticMesh>("assets/models/CornellBox/CornellBox-Original.obj");
+        image = std::make_unique<Image>("assets/textures/texture.jpg");
     }
 
     void Engine::InitImGui(SDL_Window *window, int width, int height)
@@ -193,13 +194,6 @@ namespace engine
 
             // ImGui::SliderFloat("float", &f, 0.0f, 1.0f);             // Edit 1 float using a slider from 0.0f to 1.0f
             ImGui::ColorEdit3("clear color", (float *)&clear_color); // Edit 3 floats representing a color
-
-            ImGui::SliderFloat3("vertice:0 position", (float *)&((Vertex *)data)[0].position, -1.0f, 1.0f);
-            ImGui::SliderFloat3("vertice:1 position", (float *)&((Vertex *)data)[1].position, -1.0f, 1.0f);
-            ImGui::SliderFloat3("vertice:2 position", (float *)&((Vertex *)data)[2].position, -1.0f, 1.0f);
-            ImGui::ColorEdit4("vertice:0 color", (float *)&((Vertex *)data)[0].color);
-            ImGui::ColorEdit4("vertice:1 color", (float *)&((Vertex *)data)[1].color);
-            ImGui::ColorEdit4("vertice:2 color", (float *)&((Vertex *)data)[2].color);
 
             if (ImGui::Button("Button")) // Buttons return true when clicked (most widgets return true when edited/activated)
                 counter++;
@@ -382,35 +376,30 @@ namespace engine
 
         vertices = staticMesh->get_one_vertices();
 
-        vk::BufferCreateInfo vertexBufferInfo;
-        vertexBufferInfo.size = sizeof(Vertex) * vertices.size();
-        vertexBufferInfo.usage = vk::BufferUsageFlagBits::eVertexBuffer;
-        vertexBufferInfo.sharingMode = vk::SharingMode::eExclusive;
+        vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-        if (context->device.createBuffer(&vertexBufferInfo, nullptr, &vertexBuffer) != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to create vertex buffer");
-        }
+        vk::Buffer stagingBuffer;
+        vk::DeviceMemory stagingBufferMemory;
 
-        vk::MemoryRequirements memRequirements;
-        context->device.getBufferMemoryRequirements(vertexBuffer, &memRequirements);
-        vk::MemoryAllocateInfo allocInfo;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+        createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
+                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                     stagingBuffer, stagingBufferMemory);
 
-        if (context->device.allocateMemory(&allocInfo, nullptr, &vertexBufferMemory) != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to allocate vertex buffer memory");
-        }
-
-        context->device.bindBufferMemory(vertexBuffer, vertexBufferMemory, 0);
-
-        if (context->device.mapMemory(vertexBufferMemory, 0, vertexBufferInfo.size, vk::MemoryMapFlags(), &data) != vk::Result::eSuccess)
+        void *verticesData;
+        if (context->device.mapMemory(stagingBufferMemory, 0, bufferSize, vk::MemoryMapFlags(), &verticesData) != vk::Result::eSuccess)
         {
             throw std::runtime_error("Failed to map vertex buffer memory");
         }
-        memcpy(data, vertices.data(), (size_t)vertexBufferInfo.size);
-        context->device.unmapMemory(vertexBufferMemory);
+        memcpy(verticesData, vertices.data(), (size_t)bufferSize);
+        context->device.unmapMemory(stagingBufferMemory);
+
+        createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eVertexBuffer,
+                     vk::MemoryPropertyFlagBits::eDeviceLocal, vertexBuffer, vertexBufferMemory);
+
+        copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+
+        context->device.destroyBuffer(stagingBuffer);
+        context->device.freeMemory(stagingBufferMemory);
 
         CreateIndexBuffer();
     }
@@ -444,36 +433,30 @@ namespace engine
 
         indices = staticMesh->get_one_indices();
 
-        vk::BufferCreateInfo indexBufferInfo;
-        indexBufferInfo.size = sizeof(uint32_t) * indices.size();
-        indexBufferInfo.usage = vk::BufferUsageFlagBits::eIndexBuffer;
-        indexBufferInfo.sharingMode = vk::SharingMode::eExclusive;
+        vk::DeviceSize bufferSize = sizeof(indices[0]) * indices.size();
 
-        if (context->device.createBuffer(&indexBufferInfo, nullptr, &indexBuffer) != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to create index buffer");
-        }
+        vk::Buffer stagingBuffer;
+        vk::DeviceMemory stagingBufferMemory;
 
-        vk::MemoryRequirements memRequirements;
-        context->device.getBufferMemoryRequirements(indexBuffer, &memRequirements);
-        vk::MemoryAllocateInfo allocInfo;
-        allocInfo.allocationSize = memRequirements.size;
-        allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
-
-        if (context->device.allocateMemory(&allocInfo, nullptr, &indexBufferMemory) != vk::Result::eSuccess)
-        {
-            throw std::runtime_error("Failed to allocate index buffer memory");
-        }
-
-        context->device.bindBufferMemory(indexBuffer, indexBufferMemory, 0);
+        createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
+                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                     stagingBuffer, stagingBufferMemory);
 
         void *indexData;
-        if (context->device.mapMemory(indexBufferMemory, 0, indexBufferInfo.size, vk::MemoryMapFlags(), &indexData) != vk::Result::eSuccess)
+        if (context->device.mapMemory(stagingBufferMemory, 0, bufferSize, vk::MemoryMapFlags(), &indexData) != vk::Result::eSuccess)
         {
             throw std::runtime_error("Failed to map index buffer memory");
         }
-        memcpy(indexData, indices.data(), (size_t)indexBufferInfo.size);
-        context->device.unmapMemory(indexBufferMemory);
+        memcpy(indexData, indices.data(), (size_t)bufferSize);
+        context->device.unmapMemory(stagingBufferMemory);
+
+        createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferDst | vk::BufferUsageFlagBits::eIndexBuffer,
+                     vk::MemoryPropertyFlagBits::eDeviceLocal,
+                     indexBuffer, indexBufferMemory);
+        copyBuffer(stagingBuffer, indexBuffer, bufferSize);
+
+        context->device.destroyBuffer(stagingBuffer);
+        context->device.freeMemory(stagingBufferMemory);
     }
 
     void Engine::DestroyIndexBuffer()
@@ -540,10 +523,10 @@ namespace engine
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
         UniformBufferObject ubo = {};
-        // ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        ubo.model = glm::mat4(1.0f);
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        // ubo.model = glm::mat4(1.0f);
         // ubo.view = glm::lookAt(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        ubo.view = glm::lookAt(glm::vec3(0.0f, 1.0f, 2.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+        ubo.view = glm::lookAt(glm::vec3(0.0f, 1.0f, 3.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
         ubo.proj = glm::perspective(glm::radians(60.0f), width / (float)height, 0.1f, 1000.0f);
 
         void *uboData;
