@@ -11,7 +11,7 @@ namespace engine
     public:
         vk::SwapchainKHR swapchain;
 
-        Swapchain(const engine::Context *context, int width, int height);
+        Swapchain(const engine::Context *context, int width, int height, vk::ImageView depthImageView);
         ~Swapchain();
 
         struct SwapchainInfo
@@ -27,12 +27,13 @@ namespace engine
         SwapchainInfo swapchainInfo;
         std::vector<vk::Image> images;
         std::vector<vk::ImageView> imageViews;
+        std::vector<vk::ImageView> depthImageViews;
         std::vector<vk::Framebuffer> framebuffers;
 
         void querySwapchainInfo(int width, int height);
         void getImages();
-        void createImageViews();
-        void createFramebuffers(const RenderProcess *renderProcess, int width, int height);
+        void createImageViews(vk::ImageView depthImageView);
+        void createFramebuffers(const RenderProcess *renderProcess, int width, int height, vk::ImageView depthImageView);
 
     private:
         const engine::Context *context;

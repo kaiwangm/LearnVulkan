@@ -2,7 +2,7 @@
 
 namespace engine
 {
-    Swapchain::Swapchain(const engine::Context *context, int width, int height)
+    Swapchain::Swapchain(const engine::Context *context, int width, int height, vk::ImageView depthImageView)
     {
         this->context = context;
 
@@ -36,7 +36,7 @@ namespace engine
         // swapchain = context->device.createSwapchainKHR(swapchainCreateInfo);
 
         // getImages();
-        // createImageViews();
+        // createImageViews(depthImageView);
     }
 
     Swapchain::~Swapchain()
@@ -97,7 +97,7 @@ namespace engine
         images = context->device.getSwapchainImagesKHR(swapchain);
     }
 
-    void Swapchain::createImageViews()
+    void Swapchain::createImageViews(vk::ImageView depthImageView)
     {
         imageViews.resize(images.size());
         for (size_t i = 0; i < images.size(); i++)
@@ -110,20 +110,37 @@ namespace engine
                 .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
 
             imageViews[i] = context->device.createImageView(imageViewCreateInfo);
+            depthImageViews.push_back(depthImageView);
         }
     }
 
-    void Swapchain::createFramebuffers(const RenderProcess *renderProcess, int width, int height)
+    void Swapchain::createFramebuffers(const RenderProcess *renderProcess, int width, int height, vk::ImageView depthImageView)
     {
-        framebuffers.resize(imageViews.size());
-        for (size_t i = 0; i < imageViews.size(); i++)
+        framebuffers.resize(2);
+        imageViews.resize(2);
+        for(size_t i = 0; i < 2; i++)
+        {
+            vk::ImageViewCreateInfo imageViewCreateInfo;
+            imageViewCreateInfo.setImage(images[i])
+                .setViewType(vk::ImageViewType::e2D)
+                .setComponents(vk::ComponentMapping())
+                .setFormat(swapchainInfo.format.format)
+                .setSubresourceRange(vk::ImageSubresourceRange(vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1));
+
+            imageViews[i] = context->device.createImageView(imageViewCreateInfo);
+            depthImageViews.push_back(depthImageView);
+        }
+
+        for (size_t i = 0; i < 2; i++)
         {
             vk::FramebufferCreateInfo framebufferCreateInfo;
-            framebufferCreateInfo.setAttachments(imageViews[i])
-                .setWidth(width)
+            std::array<vk::ImageView, 2> attachments = {imageViews[i], depthImageViews[i]};
+            framebufferCreateInfo.setWidth(width)
                 .setHeight(height)
                 .setRenderPass(renderProcess->renderPass)
-                .setLayers(1);
+                .setLayers(1)
+                .setAttachmentCount(2)
+                .setPAttachments(attachments.data());
 
             framebuffers[i] = context->device.createFramebuffer(framebufferCreateInfo);
         }

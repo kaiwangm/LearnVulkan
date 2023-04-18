@@ -50,34 +50,43 @@ namespace engine
         ImGui_ImplVulkanH_DestroyWindow(context->instance, context->device, &g_MainWindowData, nullptr);
     }
 
-    void Engine::Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface, int width, int height)
+    void Engine::Init(const std::vector<const char *> &extensions, CreateSurfaceFunction createSurface, int width, int height, SDL_Window *window)
     {
         this->width = width;
         this->height = height;
 
+        staticMesh = std::make_unique<StaticMesh>("assets/models/viking_room/viking_room.obj");
+        image = std::make_unique<Image>("assets/models/viking_room/viking_room.png");
+
         // Create context
         context = std::make_unique<Context>(extensions, createSurface);
-        swapchain = std::make_unique<Swapchain>(context.get(), width, height);
+        InitImGui(window, width, height);
+
+        CreateObjects();
+        CreateTextureImage();
+        CreateUniformBuffers();
+        CreateDepthResources();
+
+        swapchain = std::make_unique<Swapchain>(context.get(), width, height, depthImageView);
 
         // Create shader
         shader = std::make_unique<Shader>(context.get(), "assets/shaders/shader.vert.spv", "assets/shaders/shader.frag.spv");
 
         // Create render process
         renderProcess = std::make_unique<RenderProcess>(context.get());
-        renderProcess->InitRenderPass(swapchain.get());
+        renderProcess->InitRenderPass(swapchain.get(), findDepthFormat());
         renderProcess->InitLayout();
 
         // Create swapchain
-        // swapchain->createFramebuffers(renderProcess.get(), width, height);
+        // swapchain->createFramebuffers(renderProcess.get(), width, height, depthImageView);
 
         // Create pipeline
         renderProcess->InitPipeline(shader.get(), width, height);
 
         // Create renderer
-        renderer = std::make_unique<Renderer>(context.get(), renderProcess.get(), swapchain.get());
+        // renderer = std::make_unique<Renderer>(context.get(), renderProcess.get(), swapchain.get());
 
-        staticMesh = std::make_unique<StaticMesh>("assets/models/CornellBox/CornellBox-Original.obj");
-        image = std::make_unique<Image>("assets/textures/texture.jpg");
+        
     }
 
     void Engine::InitImGui(SDL_Window *window, int width, int height)
@@ -163,7 +172,7 @@ namespace engine
                 // reset view port
                 renderProcess.reset();
                 renderProcess = std::make_unique<RenderProcess>(context.get());
-                renderProcess->InitRenderPass(swapchain.get());
+                renderProcess->InitRenderPass(swapchain.get(), findDepthFormat());
                 renderProcess->InitLayout();
                 renderProcess->InitPipeline(shader.get(), width, height);
             }
@@ -291,6 +300,35 @@ namespace engine
 
         // Submit command buffer
         vkCmdEndRenderPass(fd->CommandBuffer);
+
+
+        // {
+        //     VkRenderPassBeginInfo info = {};
+        //     info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        //     info.renderPass = renderProcess->renderPass;
+        //     info.framebuffer = fd->Framebuffer;
+        //     info.renderArea.extent.width = wd->Width;
+        //     info.renderArea.extent.height = wd->Height;
+        //     std::array<VkClearValue, 2> clearValues = {};
+        //     clearValues[0].color = wd->ClearValue.color;
+        //     clearValues[1].depthStencil = {1.0f, 0};
+        //     info.clearValueCount = 2;
+        //     info.pClearValues = clearValues.data();
+        //     vkCmdBeginRenderPass(fd->CommandBuffer, &info, VK_SUBPASS_CONTENTS_INLINE);
+        // }
+
+        // vkCmdBindPipeline(fd->CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderProcess->pipeline);
+        // vkCmdBindDescriptorSets(fd->CommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderProcess->layout, 0, 1, (VkDescriptorSet *)context->descriptorSets.data(), 0, nullptr);
+        // VkBuffer vertexBuffers[] = {(VkBuffer)vertexBuffer};
+        // VkDeviceSize offsets[] = {0};
+        // vkCmdBindVertexBuffers(fd->CommandBuffer, 0, 1, vertexBuffers, offsets);
+        // vkCmdBindIndexBuffer(fd->CommandBuffer, (VkBuffer)indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        // vkCmdDrawIndexed(fd->CommandBuffer, static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
+
+        // // Submit command buffer
+        // vkCmdEndRenderPass(fd->CommandBuffer);
+
+        
         {
             VkPipelineStageFlags wait_stage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
             VkSubmitInfo info = {};
@@ -336,8 +374,10 @@ namespace engine
     {
         context->device.waitIdle();
 
+        DestroyTextureImage();
         DestroyUniformBuffers();
         DestroyObjects();
+        DestroyDepthResources();
 
         ImGui_ImplVulkan_Shutdown();
         ImGui_ImplSDL2_Shutdown();
@@ -501,7 +541,7 @@ namespace engine
             context->device.bindBufferMemory(uniformBuffers[i], uniformBuffersMemory[i], 0);
         }
 
-        context->createDescriptorSets(uniformBuffers, wd->ImageCount);
+        context->createDescriptorSets(uniformBuffers, wd->ImageCount, textureImageView, textureSampler);
     }
 
     void Engine::DestroyUniformBuffers()
@@ -523,11 +563,12 @@ namespace engine
         float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
 
         UniformBufferObject ubo = {};
-        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
         // ubo.model = glm::mat4(1.0f);
         // ubo.view = glm::lookAt(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-        ubo.view = glm::lookAt(glm::vec3(0.0f, 1.0f, 3.5f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+        ubo.view = glm::lookAt(glm::vec3(0.0f, 1.8f, 1.8f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         ubo.proj = glm::perspective(glm::radians(60.0f), width / (float)height, 0.1f, 1000.0f);
+        
 
         void *uboData;
         if (context->device.mapMemory(uniformBuffersMemory[currentImage], 0, sizeof(ubo), vk::MemoryMapFlags(), &uboData) != vk::Result::eSuccess)
@@ -536,5 +577,88 @@ namespace engine
         }
         memcpy(uboData, &ubo, sizeof(ubo));
         context->device.unmapMemory(uniformBuffersMemory[currentImage]);
+    }
+
+    void Engine::CreateDepthResources()
+    {
+        vk::Format depthFormat = findDepthFormat();
+        createImage(width, height, depthFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depthImage, depthImageMemory);
+        depthImageView = createImageView(depthImage, depthFormat, vk::ImageAspectFlagBits::eDepth);
+        transitionImageLayout(depthImage, depthFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthStencilAttachmentOptimal);
+    }
+
+
+    void Engine::DestroyDepthResources()
+    {
+
+    }
+
+    void Engine::CreateTextureImage()
+    {
+        vk::Buffer stagingBuffer;
+        vk::DeviceMemory stagingBufferMemory;
+
+        vk::DeviceSize textureSize = image->get_device_size();
+
+        createBuffer(textureSize, vk::BufferUsageFlagBits::eTransferSrc,
+                     vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent,
+                     stagingBuffer, stagingBufferMemory);
+
+        void *textureData;
+        if (context->device.mapMemory(stagingBufferMemory, 0, textureSize, vk::MemoryMapFlags(), &textureData) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to map texture buffer memory");
+        }
+        memcpy(textureData, image->get_pixels(), (size_t)textureSize);
+        context->device.unmapMemory(stagingBufferMemory);
+
+        createImage(image->get_width(), image->get_height(), vk::Format::eR8G8B8A8Unorm, vk::ImageTiling::eOptimal,
+                    vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+                    vk::MemoryPropertyFlagBits::eDeviceLocal, textureImage, textureImageMemory);
+
+        transitionImageLayout(textureImage,
+                              vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eUndefined,
+                              vk::ImageLayout::eTransferDstOptimal);
+        copyBufferToImage(stagingBuffer, textureImage, image->get_width(), image->get_height());
+        transitionImageLayout(textureImage,
+                              vk::Format::eR8G8B8A8Unorm, vk::ImageLayout::eTransferDstOptimal,
+                              vk::ImageLayout::eShaderReadOnlyOptimal);
+
+        context->device.destroyBuffer(stagingBuffer);
+        context->device.freeMemory(stagingBufferMemory);
+
+        // create image view
+        textureImageView = createImageView(textureImage, vk::Format::eR8G8B8A8Unorm, vk::ImageAspectFlagBits::eColor);
+
+        // create sampler
+        vk::SamplerCreateInfo samplerInfo;
+        samplerInfo.magFilter = vk::Filter::eLinear;
+        samplerInfo.minFilter = vk::Filter::eLinear;
+        samplerInfo.addressModeU = vk::SamplerAddressMode::eRepeat;
+        samplerInfo.addressModeV = vk::SamplerAddressMode::eRepeat;
+        samplerInfo.addressModeW = vk::SamplerAddressMode::eRepeat;
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.maxAnisotropy = 16;
+        samplerInfo.borderColor = vk::BorderColor::eIntOpaqueBlack;
+        samplerInfo.unnormalizedCoordinates = VK_FALSE;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.compareOp = vk::CompareOp::eAlways;
+        samplerInfo.mipmapMode = vk::SamplerMipmapMode::eLinear;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = 0.0f;
+
+        if (context->device.createSampler(&samplerInfo, nullptr, &textureSampler) != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("Failed to create texture sampler");
+        }
+    }
+
+    void Engine::DestroyTextureImage()
+    {
+        context->device.destroySampler(textureSampler);
+        context->device.destroyImageView(textureImageView);
+        context->device.destroyImage(textureImage);
+        context->device.freeMemory(textureImageMemory);
     }
 }

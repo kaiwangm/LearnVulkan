@@ -62,6 +62,6 @@ namespace engine
         void queryQueueFamilyIndices();
         void createDescriptorPool();
         void createDescriptorSetLayout();
-        void createDescriptorSets(std::vector<vk::Buffer>& uniformBuffers, uint32_t swapChainImagesCount);
+        void createDescriptorSets(std::vector<vk::Buffer>& uniformBuffers, uint32_t swapChainImagesCount, vk::ImageView textureImageView, vk::Sampler textureSampler);
     };
 }

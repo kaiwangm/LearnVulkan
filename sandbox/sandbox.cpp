@@ -46,12 +46,7 @@ public:
                 }
                 return surface;
             },
-            width, height);
-
-        engine.InitImGui(window, width, height);
-
-        engine.CreateObjects();
-        engine.CreateUniformBuffers();
+            width, height, window);
     }
     ~Sandbox()
     {

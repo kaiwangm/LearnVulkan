@@ -21,7 +21,7 @@ namespace engine
         ~RenderProcess();
 
         void InitLayout();
-        void InitRenderPass(const Swapchain *swapchain);
+        void InitRenderPass(const Swapchain *swapchain, vk::Format depthFormat);
         void InitPipeline(const Shader *shader, int width, int height);
 
     private:

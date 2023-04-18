@@ -100,6 +100,18 @@ namespace engine
         createInfo.setQueueCreateInfos(queueCreateInfos)
             .setPEnabledExtensionNames(extensions);
 
+        vk::PhysicalDeviceFeatures deviceFeatures;
+
+        // lambda check SamplerAnisotropy is available
+        auto checkSamplerAnisotropy = [&]()
+        {
+            vk::PhysicalDeviceFeatures supportedFeatures = phyDevice.getFeatures();
+            return supportedFeatures.samplerAnisotropy;
+        };
+
+        deviceFeatures.setSamplerAnisotropy(checkSamplerAnisotropy());
+        createInfo.setPEnabledFeatures(&deviceFeatures);
+
         device = phyDevice.createDevice(createInfo);
         if (!device)
         {
@@ -156,7 +168,7 @@ namespace engine
         descriptorPool = device.createDescriptorPool(pool_info);
     }
 
-    void Context::createDescriptorSets(std::vector<vk::Buffer>& uniformBuffers, uint32_t swapChainImagesCount)
+    void Context::createDescriptorSets(std::vector<vk::Buffer> &uniformBuffers, uint32_t swapChainImagesCount, vk::ImageView textureImageView, vk::Sampler textureSampler)
     {
         std::vector<vk::DescriptorSetLayout> layouts(swapChainImagesCount, descriptorSetLayout);
         vk::DescriptorSetAllocateInfo allocInfo;
@@ -173,13 +185,28 @@ namespace engine
                 .setOffset(0)
                 .setRange(sizeof(UniformBufferObject));
 
-            vk::WriteDescriptorSet descriptorWrite;
-            descriptorWrite.setDstSet(descriptorSets[i])
+            vk::DescriptorImageInfo imageInfo;
+            imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+                .setImageView(textureImageView)
+                .setSampler(textureSampler);
+
+            vk::WriteDescriptorSet bufferdescriptorWrite;
+            bufferdescriptorWrite.setDstSet(descriptorSets[i])
                 .setDstBinding(0)
                 .setDstArrayElement(0)
                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                 .setDescriptorCount(1)
                 .setPBufferInfo(&bufferInfo);
+
+            vk::WriteDescriptorSet samplerdescriptorWrite;
+            samplerdescriptorWrite.setDstSet(descriptorSets[i])
+                .setDstBinding(1)
+                .setDstArrayElement(0)
+                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                .setDescriptorCount(1)
+                .setPImageInfo(&imageInfo);
+            
+            std::array<vk::WriteDescriptorSet, 2> descriptorWrite = {bufferdescriptorWrite, samplerdescriptorWrite};
 
             device.updateDescriptorSets(descriptorWrite, nullptr);
         }
@@ -188,11 +215,22 @@ namespace engine
     void Context::createDescriptorSetLayout()
     {
         vk::DescriptorSetLayoutCreateInfo layoutInfo;
-        vk::DescriptorSetLayoutBinding binding;
-        binding.setBinding(0)
+
+        vk::DescriptorSetLayoutBinding uboLayoutBinding;
+        uboLayoutBinding.setBinding(0)
             .setDescriptorType(vk::DescriptorType::eUniformBuffer)
             .setStageFlags(vk::ShaderStageFlagBits::eVertex)
             .setDescriptorCount(1);
+
+        vk::DescriptorSetLayoutBinding samplerLayoutBinding;
+        samplerLayoutBinding.setBinding(1)
+            .setDescriptorCount(1)
+            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+            .setPImmutableSamplers(nullptr)
+            .setStageFlags(vk::ShaderStageFlagBits::eFragment);
+
+        std::array<vk::DescriptorSetLayoutBinding, 2> binding = {uboLayoutBinding, samplerLayoutBinding};
+
         layoutInfo.setBindings(binding);
 
         descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);

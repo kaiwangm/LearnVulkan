@@ -68,6 +68,15 @@ namespace engine
         pipelineInfo.setPMultisampleState(&multisamplingInfo);
 
         // 7. test - stencil, depth
+        vk::PipelineDepthStencilStateCreateInfo depthStencilInfo;
+        depthStencilInfo.setDepthTestEnable(VK_TRUE)
+            .setDepthWriteEnable(VK_TRUE)
+            .setDepthCompareOp(vk::CompareOp::eLess)
+            .setDepthBoundsTestEnable(VK_FALSE)
+            .setMinDepthBounds(0.0f)
+            .setMaxDepthBounds(1.0f)
+            .setStencilTestEnable(VK_FALSE);
+        pipelineInfo.setPDepthStencilState(&depthStencilInfo);
 
         // 8. color blending
         vk::PipelineColorBlendStateCreateInfo colorBlendingInfo;
@@ -102,7 +111,7 @@ namespace engine
         layout = context->device.createPipelineLayout(pipelineLayoutInfo);
     }
 
-    void RenderProcess::InitRenderPass(const Swapchain *swapchain)
+    void RenderProcess::InitRenderPass(const Swapchain *swapchain, vk::Format depthFormat)
     {
         vk::RenderPassCreateInfo renderPassInfo;
         vk::AttachmentDescription attachDesc;
@@ -114,15 +123,30 @@ namespace engine
             .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
             .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
             .setSamples(vk::SampleCountFlagBits::e1);
-        renderPassInfo.setAttachments(attachDesc);
+
+        vk::AttachmentDescription depthDesc;
+        depthDesc.setFormat(depthFormat)
+            .setSamples(vk::SampleCountFlagBits::e1)
+            .setLoadOp(vk::AttachmentLoadOp::eClear)
+            .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+            .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+            .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+            .setInitialLayout(vk::ImageLayout::eUndefined)
+            .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
         vk::AttachmentReference attachRef;
         attachRef.setLayout(vk::ImageLayout::eColorAttachmentOptimal)
             .setAttachment(0);
+
+        vk::AttachmentReference depthRef;
+        depthRef.setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal)
+            .setAttachment(1);
+
         vk::SubpassDescription subpass;
         subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-            .setColorAttachments(attachRef);
-        renderPassInfo.setSubpasses(subpass);
+            .setColorAttachmentCount(1)
+            .setPColorAttachments(&attachRef)
+            .setPDepthStencilAttachment(&depthRef);
 
         vk::SubpassDependency dependency;
         dependency.setSrcSubpass(VK_SUBPASS_EXTERNAL)
@@ -130,7 +154,14 @@ namespace engine
             .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite)
             .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput)
             .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
-        renderPassInfo.setDependencies(dependency);
+
+        std::array<vk::AttachmentDescription, 2> attachments = {attachDesc, depthDesc};
+        renderPassInfo.setAttachmentCount(2)
+                    .setPAttachments(attachments.data())
+                    .setSubpassCount(1)
+                    .setPSubpasses(&subpass)
+                    .setDependencyCount(1)
+                    .setPDependencies(&dependency);
 
         renderPass = context->device.createRenderPass(renderPassInfo);
     }
